@@ -1,0 +1,6 @@
+[package]
+name = "http-gateway"
+version = "0.1.0"
+authors = ["Artem Tolpekin <a.tolpekin@netology-group.ru>"]
+
+[dependencies]
