@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-gateway
+  labels:
+    app: http-gateway
+spec:
+  replicas: 1
+  selector:
+      matchLabels:
+        app: http-gateway
+  template:
+    metadata:
+      labels:
+        app: http-gateway
+    spec:
+      containers:
+        - name: http-gateway
+          image: artolpekin/http-gateway:latest
+          env:
+            - name: MQTT_HOST
+              value: mqtt.testing.netology-group.services
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi

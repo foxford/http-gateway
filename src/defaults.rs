@@ -1,0 +1,10 @@
+pub const CLIENT_ID_HEADER: &'static str = "x-mqtt-client-id";
+pub const USERNAME_HEADER: &'static str = "x-mqtt-username";
+pub const PASSWORD_HEADER: &'static str = "x-mqtt-password";
+pub const REQUEST_TOPIC_HEADER: &'static str = "x-mqtt-publish-topic";
+pub const REQUEST_QOS_HEADER: &'static str = "x-mqtt-publish-qos";
+pub const RESPONSE_TOPIC_HEADER: &'static str = "x-mqtt-subscribe-topic";
+pub const RESPONSE_QOS_HEADER: &'static str = "x-mqtt-subscribe-qos";
+pub const LWT_HEADER: &'static str = "x-mqtt-last-will-topic";
+pub const LWM_HEADER: &'static str = "x-mqtt-last-will-message";
+pub const DEFAULT_QOS: u8 = 1;

@@ -1,0 +1,28 @@
+@startuml rpc_call
+
+http_client -> http_gateway : POST /rpc_call
+note left
+    **required headers:**
+    x-mqtt-client-id
+    x-mqtt-username
+    x-mqtt-password
+    x-mqtt-publish-topic
+    x-mqtt-publish-qos
+    x-mqtt-subscribe-topic
+    x-mqtt-subscribe-qos
+    x-mqtt-last-will-topic
+    x-mqtt-last-will-message
+
+end note
+
+http_gateway -> mqtt_broker : CONNECT
+http_gateway -> mqtt_broker : SUBSCRIBE to x-response-topic
+http_gateway -> mqtt_broker : PUBLISH the body of the http request\n\
+to x-request-topic
+mqtt_broker -> http_gateway : PUBLISH to x-response-topic
+http_gateway -> http_client : http response
+http_gateway -> mqtt_broker : UNSUBSCRIBE from x-response-topic
+http_gateway -> mqtt_broker : DISCONNECT
+
+
+@enduml

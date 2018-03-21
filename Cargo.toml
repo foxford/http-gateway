@@ -4,3 +4,15 @@ version = "0.1.0"
 authors = ["Artem Tolpekin <a.tolpekin@netology-group.ru>"]
 
 [dependencies]
+futures = "0.1"
+env_logger = "*"
+log = "*"
+
+actix = "0.5"
+actix-web = "0.4"
+
+paho-mqtt = { path = "vendor/paho.mqtt.rust" }
+
+num_cpus = "*"
+failure = "*"
+http = "*"
