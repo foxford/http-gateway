@@ -16,10 +16,13 @@ spec:
     spec:
       containers:
         - name: http-gateway
-          image: artolpekin/http-gateway:latest
+          image: netologygroup/http-gateway:latest
           env:
             - name: MQTT_HOST
-              value: mqtt.testing.netology-group.services
+              valueFrom:
+                configMapKeyRef:
+                  name: http-gateway-configmap
+                  key: mqtt-host
           resources:
             requests:
               cpu: 100m

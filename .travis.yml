@@ -2,27 +2,56 @@ language: rust
 cache:
   cargo: true
   directories:
-    - ${HOME}/google-cloud-sdk/
-matrix:
+    - ${HOME}/google-cloud-sdk
+sudo: required
+git:
+  submodules: false
+jobs:
   include:
-    - rust: nightly-2018-01-12
+    - stage: commit
+      rust: stable
+    - stage: docker build/publish
+      rust: stable
+      services: docker
+      script: DOCKER_IMAGE_NAME=http-gateway scripts/docker.image.publish.sh
+    - stage: release
+      rust: stable
       env:
-        - CLIPPY_VERSION=0.0.179
-      before_script:
-        - cargo install clippy --version $CLIPPY_VERSION || echo "installed"
+        - NAMESPACE=staging APP=http-gateway
       script:
-        - cargo clippy -- -D clippy
-    - rust: stable
-      if: branch != master OR type != push
-    - rust: stable
-      if: branch = master AND type = push
-      env:
-        - CLOUDSDK_CORE_DISABLE_PROMPTS=1
+        - |
+          scripts/gcloud.install.sh &&
+          scripts/k8s.install.sh &&
+          PATH_TO_FILE=${TRAVIS_BUILD_DIR}/k8s scripts/k8s.chart.download.sh &&
+          PATH_TO_CHARTS=${TRAVIS_BUILD_DIR}/k8s/[^_]** scripts/k8s.charts.apply.sh
+    - stage: publish
+      rust: stable
       after_success:
-        - bash scripts/deploy-docs.sh
-before_script:
-  - rustup component add rustfmt-preview
+        - |
+          scripts/gcloud.install.sh &&
+          scripts/deploy-docs.sh
 script:
+  - rustup component add rustfmt-preview
+  - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
+  - git submodule update --init --recursive
+  - |
+    git clone https://github.com/eclipse/paho.mqtt.c.git && \
+    cd paho.mqtt.c && sudo apt-get install clang && \
+    git checkout tags/v1.2.0 && \
+    make && sudo make install && \
+    cd .. && rm -rf paho.mqtt.c
   - cargo fmt --all -- --write-mode=diff
   - cargo build
   - cargo test
+stages:
+  - name: warmup
+  - name: commit
+  - name: docker build/publish
+    if: branch = master AND type = push
+  - name: test
+  - name: migrate
+    if: branch = master AND type = push AND env(DATABASE_URL) IS present
+  - name: release
+    if: branch = master AND type = push
+  - name: publish
+    if: branch = master AND type = push
