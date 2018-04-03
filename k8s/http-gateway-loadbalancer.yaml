@@ -1,0 +1,12 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: http-gateway-loadbalancer
+spec:
+  selector:
+    app: http-gateway
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 80
+      name: http
