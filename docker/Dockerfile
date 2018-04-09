@@ -10,14 +10,15 @@ RUN git clone https://github.com/eclipse/paho.mqtt.c.git && \
     make && make install
 ENV PATH $PATH:/root/.cargo/bin
 COPY . .
+RUN git submodule update --init
 RUN cargo build --release
 
 FROM ubuntu:16.04
 
-RUN apt-get update -y && apt-get install build-essential libssl-dev -y
-
 COPY --from=builder /usr/src/http-gateway/target/release/http-gateway /app/
 COPY --from=builder /usr/src/http-gateway/paho.mqtt.c /paho/
+
+RUN apt-get update -y && apt-get install -y build-essential libssl-dev
 RUN cd /paho && make install && cd .. && rm -rf /paho
 
 CMD ["/app/http-gateway"]

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: http-gateway
-          image: netologygroup/http-gateway:latest
+          image: netologygroup/http-gateway
           ports:
             - containerPort: 80
           env:
