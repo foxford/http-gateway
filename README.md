@@ -61,4 +61,12 @@ Name | Default | Description
 -----|---------|------------
 MQTT_BROKER_URL|localhost:1883|The addres of the broker (like test.mosquitto.org:1883)
 LISTEN_PORT|80|Port where the application will listen for HTTP requests
+MQTT_HANDLER_COEFFICIENT|10|Threads for `/rpc_call` = `number of cpus * MQTT_HANDLER_COEFFICIENT`
+MQTT_HANDLER_TIMEOUT|5 sec|Timeout for waiting response from the broker
+MQTT_HANDLER_THREADS|-|Exact number of threads for `/rpc_call`. Cancel MQTT_HANDLER_COEFFICIENT
 
+# Running tests
+```
+docker run -it -p 1883:1883 -p 9001:9001 eclipse-mosquitto
+cargo test
+```

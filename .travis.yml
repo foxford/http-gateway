@@ -31,6 +31,7 @@ jobs:
           scripts/gcloud.install.sh &&
           scripts/deploy-docs.sh
 script:
+  - docker run --rm -d -it -p 1883:1883 -p 9001:9001 eclipse-mosquitto
   - rustup component add rustfmt-preview
   - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
   - git submodule update --init --recursive

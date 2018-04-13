@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:16.04 as builder
 
 WORKDIR /usr/src/http-gateway
 
@@ -10,6 +10,14 @@ RUN git clone https://github.com/eclipse/paho.mqtt.c.git && \
     make && make install
 ENV PATH $PATH:/root/.cargo/bin
 COPY . .
-RUN cargo install
+RUN cargo build --release
 
-CMD ["mqtt-bridge"]
+FROM ubuntu:16.04
+
+RUN apt-get update -y && apt-get install build-essential libssl-dev -y
+
+COPY --from=builder /usr/src/http-gateway/target/release/http-gateway /app/
+COPY --from=builder /usr/src/http-gateway/paho.mqtt.c /paho/
+RUN cd /paho && make install && cd .. && rm -rf /paho
+
+CMD ["/app/http-gateway"]

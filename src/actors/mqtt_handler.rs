@@ -1,9 +1,10 @@
-extern crate paho_mqtt as mqtt;
-
+use mqtt;
+use serde_json;
 use actix::prelude::*;
-use actix_web::*;
-
-use std::time::Duration;
+use extractors::parsing::RequestId;
+use extractors::rpc_call_extractor::RPCCallParams;
+use errors::Result;
+use std::result;
 
 pub struct MqttHandler;
 
@@ -11,49 +12,45 @@ impl Actor for MqttHandler {
     type Context = SyncContext<Self>;
 }
 
-pub struct Params {
-    pub client_id: String,
-    pub username: String,
-    pub password: String,
-    pub last_will_topic: String,
-    pub last_will_message: String,
-    pub request_topic: String,
-    pub request_qos: u8,
-    pub response_topic: String,
-    pub response_qos: u8,
-}
-
-pub struct RPCCall {
-    pub broker_addr: String,
-    pub params: Params,
+#[derive(Debug)]
+pub struct RPCCallMessage {
+    pub id: String,
+    pub broker_url: String,
+    pub params: RPCCallParams,
     pub payload: Vec<u8>,
 }
 
-impl Message for RPCCall {
-    type Result = Result<String, mqtt::MqttError>;
+impl Message for RPCCallMessage {
+    type Result = Result<String>;
 }
 
-impl Handler<RPCCall> for MqttHandler {
-    type Result = Result<String, mqtt::MqttError>;
+impl Handler<RPCCallMessage> for MqttHandler {
+    type Result = Result<String>;
 
-    fn handle(&mut self, msg: RPCCall, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: RPCCallMessage, _ctx: &mut Self::Context) -> Self::Result {
         let create_opts = mqtt::CreateOptionsBuilder::new()
-            .server_uri(msg.broker_addr)
+            .server_uri(msg.broker_url)
             .client_id(msg.params.client_id)
             .finalize();
 
         let mut cli = mqtt::Client::new(create_opts)?;
 
-        let lwt = mqtt::MessageBuilder::new()
-            .topic(&msg.params.last_will_topic)
-            .payload(msg.params.last_will_message.as_bytes())
-            .finalize();
+        let conn_opts =
+            if msg.params.last_will_topic.is_some() && msg.params.last_will_message.is_some() {
+                let lwt = mqtt::MessageBuilder::new()
+                    .topic(&msg.params.last_will_topic.unwrap())
+                    .payload(msg.params.last_will_message.unwrap().as_bytes())
+                    .finalize();
 
-        let conn_opts = mqtt::ConnectOptionsBuilder::new()
-            .keep_alive_interval(Duration::from_secs(20))
-            .clean_session(true)
-            .will_message(lwt)
-            .finalize();
+                mqtt::ConnectOptionsBuilder::new()
+                    .clean_session(true)
+                    .will_message(lwt)
+                    .finalize()
+            } else {
+                mqtt::ConnectOptionsBuilder::new()
+                    .clean_session(true)
+                    .finalize()
+            };
 
         debug!("Connecting to the MQTT broker...");
         cli.connect(conn_opts)?;
@@ -61,15 +58,16 @@ impl Handler<RPCCall> for MqttHandler {
         debug!("Subscribing to topics...");
         let rx = cli.start_consuming();
 
-        let subscriptions = [&msg.params.response_topic];
+        let subscriptions = [&msg.params.subscribe_topic];
 
-        cli.subscribe_many(&subscriptions, &[msg.params.response_qos as i32])?;
+        cli.subscribe_many(&subscriptions, &[msg.params.subscribe_qos as i32])?;
 
-        let message = mqtt::Message::new(
-            &msg.params.request_topic,
-            msg.payload,
-            msg.params.request_qos as i32,
-        );
+        let message = mqtt::MessageBuilder::new()
+            .topic(&msg.params.publish_topic)
+            .qos(msg.params.publish_qos as i32)
+            .retained(msg.params.publish_retain)
+            .payload(msg.payload)
+            .finalize();
 
         debug!("Publishing message: {:?}", message);
         cli.publish(message)?;
@@ -78,10 +76,21 @@ impl Handler<RPCCall> for MqttHandler {
         debug!("Waiting for messages...");
         for m in rx.iter() {
             if let Some(m) = m {
-                response = m.get_payload_str().unwrap();
-                break;
+                let r = m.get_payload_str();
+                if r.is_err() {
+                    continue;
+                }
+                let r = r.unwrap();
+                let id: result::Result<RequestId, serde_json::Error> = serde_json::from_str(&r);
+                if id.is_err() {
+                    continue;
+                }
+                if id.unwrap().id == msg.id {
+                    response = r;
+                    break;
+                }
             } else {
-                break;
+                continue;
             }
         }
 
