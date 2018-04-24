@@ -1,0 +1,15 @@
+@startuml rpc_call_sequence
+
+http_client -> http_gateway : POST /rpc_call
+
+http_gateway -> mqtt_broker : CONNECT
+http_gateway -> mqtt_broker : SUBSCRIBE to x-mqtt-subscribe-topic
+http_gateway -> mqtt_broker : PUBLISH the body of the http request\n\
+to x-mqtt-publish-topic
+mqtt_broker -> http_gateway : PUBLISH to x-mqtt-subscribe-topic
+http_gateway -> http_client : http response
+http_gateway -> mqtt_broker : UNSUBSCRIBE from x-mqtt-subscribe-topic
+http_gateway -> mqtt_broker : DISCONNECT
+
+
+@enduml
