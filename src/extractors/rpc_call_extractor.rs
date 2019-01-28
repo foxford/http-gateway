@@ -1,9 +1,9 @@
-use futures::future::{result, FutureResult};
 use actix_web;
 use actix_web::{FromRequest, HttpMessage, HttpRequest};
+use defaults::*;
 use errors::Result;
 use extractors::parsing::*;
-use defaults::*;
+use futures::future::{result, FutureResult};
 
 #[derive(Debug, Clone)]
 pub struct RPCCallParams {

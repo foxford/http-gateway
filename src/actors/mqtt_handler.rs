@@ -1,9 +1,9 @@
-use mqtt;
-use serde_json;
 use actix::prelude::*;
+use errors::Result;
 use extractors::parsing::RequestId;
 use extractors::rpc_call_extractor::RPCCallParams;
-use errors::Result;
+use mqtt;
+use serde_json;
 use std::result;
 
 pub struct MqttHandler;
@@ -38,7 +38,7 @@ impl Handler<RPCCallMessage> for MqttHandler {
         let conn_opts =
             if msg.params.last_will_topic.is_some() && msg.params.last_will_message.is_some() {
                 let lwt = mqtt::MessageBuilder::new()
-                    .topic(&msg.params.last_will_topic.unwrap())
+                    .topic(msg.params.last_will_topic.unwrap())
                     .payload(msg.params.last_will_message.unwrap().as_bytes())
                     .finalize();
 
@@ -63,7 +63,7 @@ impl Handler<RPCCallMessage> for MqttHandler {
         cli.subscribe_many(&subscriptions, &[msg.params.subscribe_qos as i32])?;
 
         let message = mqtt::MessageBuilder::new()
-            .topic(&msg.params.publish_topic)
+            .topic(msg.params.publish_topic)
             .qos(msg.params.publish_qos as i32)
             .retained(msg.params.publish_retain)
             .payload(msg.payload)
@@ -76,17 +76,13 @@ impl Handler<RPCCallMessage> for MqttHandler {
         debug!("Waiting for messages...");
         for m in rx.iter() {
             if let Some(m) = m {
-                let r = m.get_payload_str();
-                if r.is_err() {
-                    continue;
-                }
-                let r = r.unwrap();
+                let r = m.payload_str();
                 let id: result::Result<RequestId, serde_json::Error> = serde_json::from_str(&r);
                 if id.is_err() {
                     continue;
                 }
                 if id.unwrap().id == msg.id {
-                    response = r;
+                    response = r.to_string();
                     break;
                 }
             } else {

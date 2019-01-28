@@ -1,10 +1,10 @@
-use futures::{Future, future::result};
-use bytes;
 use actix_web::{error, AsyncResponder, FutureResponse, HttpResponse, State};
-use application::*;
 use actors::mqtt_handler::RPCCallMessage;
-use std::time::Duration;
+use application::*;
+use bytes;
 use extractors::{parsing::get_request_id, rpc_call_extractor::RPCCallParams};
+use futures::{future::result, Future};
+use std::time::Duration;
 
 pub fn rpc_call(
     params: RPCCallParams,
@@ -35,13 +35,13 @@ pub fn rpc_call(
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{http, HttpMessage, client::ClientRequest, test::TestServer};
     use actix::*;
-    use futures::Future;
+    use actix_web::{client::ClientRequest, http, test::TestServer, HttpMessage};
     use actors::mqtt_handler::MqttHandler;
-    use application::{AppState, DEFAULT_BROKER_URL, DEFAULT_MQTT_HANDLER_TIMEOUT};
     use api::rpc_call::rpc_call;
+    use application::{AppState, DEFAULT_BROKER_URL, DEFAULT_MQTT_HANDLER_TIMEOUT};
     use defaults::*;
+    use futures::Future;
     use mqtt;
 
     fn initialize_server() -> TestServer {
@@ -52,7 +52,8 @@ mod tests {
                 broker_url: DEFAULT_BROKER_URL.to_string(),
                 mqtt_handler_timeout: DEFAULT_MQTT_HANDLER_TIMEOUT,
             }
-        }).start(|app| {
+        })
+        .start(|app| {
             app.resource("/rpc_call", |r| {
                 r.method(http::Method::POST).with3(rpc_call)
             });

@@ -13,19 +13,19 @@ extern crate paho_mqtt as mqtt;
 extern crate serde_derive;
 extern crate serde_json;
 
-mod application;
-mod api;
 mod actors;
+mod api;
+mod application;
+mod defaults;
 mod errors;
 mod extractors;
-mod defaults;
 
-use api::rpc_call::rpc_call;
-use actix_web::{http, middleware, server, App};
 use actix::SyncArbiter;
-use std::env;
-use application::*;
+use actix_web::{http, middleware, server, App};
 use actors::mqtt_handler::MqttHandler;
+use api::rpc_call::rpc_call;
+use application::*;
+use std::env;
 
 fn main() {
     if env::var("RUST_LOG").is_err() {
@@ -37,14 +37,16 @@ fn main() {
     let listen_addr = env::var("LISTEN_ADDR").unwrap_or(DEFAULT_LISTEN_ADDR.to_owned());
 
     let mqtt_handler_coefficient = match env::var("MQTT_HANDLER_COEFFICIENT") {
-        Ok(coef) => coef.parse::<usize>()
+        Ok(coef) => coef
+            .parse::<usize>()
             .unwrap_or_else(|_| DEFAULT_MQTT_HANDLER_COEFFICIENT),
         Err(_) => DEFAULT_MQTT_HANDLER_COEFFICIENT,
     };
 
     let mqtt_handler_threads = num_cpus::get() * mqtt_handler_coefficient;
     let mqtt_handler_threads = match env::var("MQTT_HANDLER_THREADS") {
-        Ok(num) => num.parse::<usize>()
+        Ok(num) => num
+            .parse::<usize>()
             .unwrap_or_else(|_| mqtt_handler_threads),
         Err(_) => mqtt_handler_threads,
     };
@@ -66,14 +68,16 @@ fn main() {
             mqtt_handler: addr.clone(),
             broker_url: broker_url.clone(),
             mqtt_handler_timeout: mqtt_handler_timeout,
-        }).middleware(middleware::Logger::default())
-            .resource("/rpc_call", |r| {
-                r.method(http::Method::POST).with3(rpc_call)
-            })
-    }).bind(listen_addr)
-        .unwrap()
-        .shutdown_timeout(1)
-        .start();
+        })
+        .middleware(middleware::Logger::default())
+        .resource("/rpc_call", |r| {
+            r.method(http::Method::POST).with3(rpc_call)
+        })
+    })
+    .bind(listen_addr)
+    .unwrap()
+    .shutdown_timeout(1)
+    .start();
 
     let _ = sys.run();
 }
