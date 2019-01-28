@@ -1,7 +1,7 @@
 use actix_web::http;
-use serde_json;
 use bytes::Bytes;
 use errors::{Error, Result};
+use serde_json;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RequestId {

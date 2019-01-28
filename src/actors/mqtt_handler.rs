@@ -1,9 +1,9 @@
-use mqtt;
-use serde_json;
 use actix::prelude::*;
+use errors::Result;
 use extractors::parsing::RequestId;
 use extractors::rpc_call_extractor::RPCCallParams;
-use errors::Result;
+use mqtt;
+use serde_json;
 use std::result;
 
 pub struct MqttHandler;

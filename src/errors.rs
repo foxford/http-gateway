@@ -1,8 +1,8 @@
-use actix_web::{error, http, HttpResponse};
 use actix_web;
+use actix_web::{error, http, HttpResponse};
 use mqtt;
-use std;
 use serde_json;
+use std;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
