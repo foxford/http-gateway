@@ -1,15 +1,14 @@
 use actix_web;
 use actix_web::{error, http, HttpResponse};
 use failure::Fail;
-use paho_mqtt as mqtt;
 use serde_json;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Fail, Debug)]
 pub enum Error {
-    #[fail(display = "mqtt error: {}", _0)]
-    MqttError(mqtt::MqttError),
+    // #[fail(display = "mqtt error: {}", _0)]
+    // MqttError(mqtt::MqttError),
     #[fail(display = "parse string error: {}", _0)]
     Utf8Error(std::string::FromUtf8Error),
     #[fail(display = "parse json error: {}", _0)]
@@ -27,7 +26,7 @@ pub enum Error {
 impl error::ResponseError for Error {
     fn error_response(&self) -> HttpResponse {
         match *self {
-            Error::MqttError(_) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
+            // Error::MqttError(_) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
             Error::Utf8Error(_) => HttpResponse::new(http::StatusCode::BAD_REQUEST),
             Error::JsonError(_) => HttpResponse::new(http::StatusCode::BAD_REQUEST),
             Error::HeaderError(_) => HttpResponse::new(http::StatusCode::BAD_REQUEST),
@@ -38,11 +37,11 @@ impl error::ResponseError for Error {
     }
 }
 
-impl From<mqtt::MqttError> for Error {
-    fn from(err: mqtt::MqttError) -> Error {
-        Error::MqttError(err)
-    }
-}
+// impl From<mqtt::MqttError> for Error {
+//     fn from(err: mqtt::MqttError) -> Error {
+//         Error::MqttError(err)
+//     }
+// }
 
 impl From<std::string::FromUtf8Error> for Error {
     fn from(err: std::string::FromUtf8Error) -> Error {

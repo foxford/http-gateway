@@ -1,21 +1,28 @@
+use std::env;
+
 mod actors;
 mod api;
 mod application;
+mod authn;
+mod conf;
 mod defaults;
 mod errors;
 mod extractors;
+mod mqtt;
+mod serde;
 
 use actix::SyncArbiter;
 use actix_web::{http, middleware, server, App};
 use actors::mqtt_handler::MqttHandler;
-use api::rpc_call::rpc_call;
+// use api::rpc_call::rpc_call;
 use application::*;
-use std::env;
 
 fn main() {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "actix_web=info");
+        env::set_var("RUST_LOG", "tower_web=info");
     }
+
+    env_logger::init();
 
     let broker_url = env::var("MQTT_BROKER_URL").unwrap_or(DEFAULT_BROKER_URL.to_owned());
 
@@ -43,7 +50,6 @@ fn main() {
         Err(_) => DEFAULT_MQTT_HANDLER_TIMEOUT,
     };
 
-    env_logger::init();
     let sys = actix::System::new("http-gateway");
 
     let addr = SyncArbiter::start(mqtt_handler_threads, || MqttHandler);
@@ -55,9 +61,9 @@ fn main() {
             mqtt_handler_timeout: mqtt_handler_timeout,
         })
         .middleware(middleware::Logger::default())
-        .resource("/rpc_call", |r| {
-            r.method(http::Method::POST).with3(rpc_call)
-        })
+        // .resource("/rpc_call", |r| {
+        //     r.method(http::Method::POST).with(rpc_call)
+        // })
     })
     .bind(listen_addr)
     .unwrap()

@@ -20,15 +20,15 @@ pub struct RPCCallParams {
     pub last_will_message: Option<String>,
 }
 
-impl<S: 'static> FromRequest<S> for RPCCallParams {
-    type Config = ();
-    type Result = FutureResult<Self, actix_web::Error>;
+// impl<S: 'static> FromRequest<S> for RPCCallParams {
+//     type Config = ();
+//     type Result = FutureResult<Self, actix_web::Error>;
 
-    #[inline]
-    fn from_request(req: &HttpRequest<S>, _: &Self::Config) -> Self::Result {
-        result(RPCCallParams::new(req).map_err(|e| e.into()))
-    }
-}
+//     #[inline]
+//     fn from_request(req: &HttpRequest<S>, _: &Self::Config) -> Self::Result {
+//         result(RPCCallParams::new(req).map_err(|e| e.into()))
+//     }
+// }
 
 impl RPCCallParams {
     pub fn new<S>(req: &HttpRequest<S>) -> Result<RPCCallParams> {

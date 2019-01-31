@@ -1,4 +1,4 @@
-use actix::{Addr, Syn};
+use actix::Addr;
 
 use crate::actors::mqtt_handler::MqttHandler;
 
@@ -8,7 +8,7 @@ pub const DEFAULT_MQTT_HANDLER_COEFFICIENT: usize = 10;
 pub const DEFAULT_MQTT_HANDLER_TIMEOUT: u64 = 5000; //milliseconds
 
 pub struct AppState {
-  pub mqtt_handler: Addr<Syn, MqttHandler>,
-  pub broker_url: String,
-  pub mqtt_handler_timeout: u64,
+    pub mqtt_handler: Addr<MqttHandler>,
+    pub broker_url: String,
+    pub mqtt_handler_timeout: u64,
 }

@@ -7,32 +7,32 @@ use crate::actors::mqtt_handler::RPCCallMessage;
 use crate::application::*;
 use crate::extractors::{parsing::get_request_id, rpc_call_extractor::RPCCallParams};
 
-pub fn rpc_call(
-    params: RPCCallParams,
-    state: State<AppState>,
-    body: bytes::Bytes,
-) -> FutureResponse<HttpResponse> {
-    let id = if let Some(i) = get_request_id(&body) {
-        i
-    } else {
-        return result(Err(error::ErrorBadRequest("missed 'id' field"))).responder();
-    };
-    state
-        .mqtt_handler
-        .send(RPCCallMessage {
-            id: id,
-            params: params,
-            broker_url: state.broker_url.clone(),
-            payload: body.to_vec(),
-        })
-        .timeout(Duration::from_millis(state.mqtt_handler_timeout))
-        .from_err()
-        .and_then(|res| match res {
-            Ok(response) => Ok(HttpResponse::Ok().body(response)),
-            Err(err) => Err(error::ErrorInternalServerError(err)),
-        })
-        .responder()
-}
+// pub fn rpc_call(
+//     params: RPCCallParams,
+//     state: State<AppState>,
+//     body: bytes::Bytes,
+// ) -> FutureResponse<HttpResponse> {
+//     let id = if let Some(i) = get_request_id(&body) {
+//         i
+//     } else {
+//         return result(Err(error::ErrorBadRequest("missed 'id' field"))).responder();
+//     };
+//     state
+//         .mqtt_handler
+//         .send(RPCCallMessage {
+//             id: id,
+//             params: params,
+//             broker_url: state.broker_url.clone(),
+//             payload: body.to_vec(),
+//         })
+//         .timeout(Duration::from_millis(state.mqtt_handler_timeout))
+//         .from_err()
+//         .and_then(|res| match res {
+//             Ok(response) => Ok(HttpResponse::Ok().body(response)),
+//             Err(err) => Err(error::ErrorInternalServerError(err)),
+//         })
+//         .responder()
+// }
 
 #[cfg(test)]
 mod tests {
