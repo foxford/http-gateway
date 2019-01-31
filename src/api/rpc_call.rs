@@ -1,10 +1,11 @@
 use actix_web::{error, AsyncResponder, FutureResponse, HttpResponse, State};
-use actors::mqtt_handler::RPCCallMessage;
-use application::*;
 use bytes;
-use extractors::{parsing::get_request_id, rpc_call_extractor::RPCCallParams};
 use futures::{future::result, Future};
 use std::time::Duration;
+
+use crate::actors::mqtt_handler::RPCCallMessage;
+use crate::application::*;
+use crate::extractors::{parsing::get_request_id, rpc_call_extractor::RPCCallParams};
 
 pub fn rpc_call(
     params: RPCCallParams,
@@ -37,12 +38,13 @@ pub fn rpc_call(
 mod tests {
     use actix::*;
     use actix_web::{client::ClientRequest, http, test::TestServer, HttpMessage};
-    use actors::mqtt_handler::MqttHandler;
-    use api::rpc_call::rpc_call;
-    use application::{AppState, DEFAULT_BROKER_URL, DEFAULT_MQTT_HANDLER_TIMEOUT};
-    use defaults::*;
     use futures::Future;
-    use mqtt;
+    use paho_mqtt as mqtt;
+
+    use crate::actors::mqtt_handler::MqttHandler;
+    use crate::api::rpc_call::rpc_call;
+    use crate::application::{AppState, DEFAULT_BROKER_URL, DEFAULT_MQTT_HANDLER_TIMEOUT};
+    use crate::defaults::*;
 
     fn initialize_server() -> TestServer {
         TestServer::build_with_state(|| {

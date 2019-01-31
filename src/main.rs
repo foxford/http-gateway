@@ -1,18 +1,3 @@
-extern crate actix;
-extern crate actix_web;
-extern crate bytes;
-extern crate env_logger;
-#[macro_use]
-extern crate failure;
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate num_cpus;
-extern crate paho_mqtt as mqtt;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-
 mod actors;
 mod api;
 mod application;

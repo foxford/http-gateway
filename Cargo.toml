@@ -2,6 +2,7 @@
 name = "http-gateway"
 version = "0.1.0"
 authors = ["Artem Tolpekin <a.tolpekin@netology-group.ru>"]
+edition = "2018"
 
 [dependencies]
 futures = "0.1"
@@ -20,4 +21,3 @@ paho-mqtt = { path = "vendor/paho.mqtt.rust" }
 
 num_cpus = "1.8"
 failure = "0.1"
-
