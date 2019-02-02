@@ -1,35 +1,13 @@
-use crate::authn::AccountId;
-use http::header::HeaderValue;
-use http::StatusCode;
-use jsonwebtoken::{decode, Algorithm, TokenData, Validation};
+use http::{header::HeaderValue, StatusCode};
+use jsonwebtoken::{decode, TokenData, Validation};
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tower_web::extract::{Context, Error as ExtractError, Extract, Immediate};
-use tower_web::util::BufStream;
-use tower_web::{Error, ErrorBuilder};
+use tower_web::{
+    extract::{Context, Error as ExtractError, Extract, Immediate},
+    util::BufStream,
+    Error, ErrorBuilder,
+};
 
-////////////////////////////////////////////////////////////////////////////////
-
-pub(crate) type ConfigMap = HashMap<String, Config>;
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct Config {
-    audience: String,
-    #[serde(deserialize_with = "crate::serde::algorithm")]
-    algorithm: Algorithm,
-    #[serde(deserialize_with = "crate::serde::file")]
-    key: Vec<u8>,
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Claims {
-    iss: String,
-    aud: String,
-    sub: String,
-    exp: Option<u64>,
-}
+use crate::authn::{AccountId, ConfigMap};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -68,6 +46,16 @@ fn extract_account_id(header: &HeaderValue, authn: &ConfigMap) -> Result<Account
     verifier.validate_exp = parts.claims.exp.is_some();
 
     decode_account_id(token, &verifier, config.key.as_ref())
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct Claims {
+    iss: String,
+    aud: String,
+    sub: String,
+    exp: Option<u64>,
 }
 
 fn parse_bearer_token(header: &HeaderValue) -> Result<&str, ExtractError> {

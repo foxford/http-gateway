@@ -1,74 +1,77 @@
-use std::env;
+#[macro_use]
+extern crate tower_web;
 
-mod actors;
-mod api;
-mod application;
+use failure::Error;
+use futures::{Future, Stream};
+use log::info;
+use rumqtt::Notification;
+use tokio::net::TcpListener;
+use tower_web::{middleware::log::LogMiddleware, ServiceBuilder};
+
 mod authn;
 mod conf;
-mod defaults;
-mod errors;
-mod extractors;
 mod mqtt;
-mod serde;
+mod web;
 
-use actix::SyncArbiter;
-use actix_web::{http, middleware, server, App};
-use actors::mqtt_handler::MqttHandler;
-// use api::rpc_call::rpc_call;
-use application::*;
+use mqtt::compat;
 
-fn main() {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "tower_web=info");
-    }
-
+fn main() -> Result<(), Error> {
     env_logger::init();
 
-    let broker_url = env::var("MQTT_BROKER_URL").unwrap_or(DEFAULT_BROKER_URL.to_owned());
+    let config = conf::load()?;
+    info!("Config: {:?}", config);
 
-    let listen_addr = env::var("LISTEN_ADDR").unwrap_or(DEFAULT_LISTEN_ADDR.to_owned());
+    let label = uuid::Uuid::new_v4().to_string();
 
-    let mqtt_handler_coefficient = match env::var("MQTT_HANDLER_COEFFICIENT") {
-        Ok(coef) => coef
-            .parse::<usize>()
-            .unwrap_or_else(|_| DEFAULT_MQTT_HANDLER_COEFFICIENT),
-        Err(_) => DEFAULT_MQTT_HANDLER_COEFFICIENT,
-    };
+    let agent_id = authn::AgentId::new(&label, config.id);
+    info!("Agent Id: {}", agent_id);
+    let (client, notifications) = mqtt::AgentBuilder::new(agent_id.clone()).start(&config.mqtt)?;
 
-    let mqtt_handler_threads = num_cpus::get() * mqtt_handler_coefficient;
-    let mqtt_handler_threads = match env::var("MQTT_HANDLER_THREADS") {
-        Ok(num) => num
-            .parse::<usize>()
-            .unwrap_or_else(|_| mqtt_handler_threads),
-        Err(_) => mqtt_handler_threads,
-    };
+    let client = std::sync::Arc::new(std::sync::Mutex::new(client));
 
-    let mqtt_handler_timeout = match env::var("MQTT_HANDLER_TIMEOUT") {
-        Ok(timeout) => timeout
-            .parse::<u64>()
-            .unwrap_or_else(|_| DEFAULT_MQTT_HANDLER_TIMEOUT),
-        Err(_) => DEFAULT_MQTT_HANDLER_TIMEOUT,
-    };
+    let client_copy_for_notifications = client.clone();
 
-    let sys = actix::System::new("http-gateway");
+    let notifications = notifications.and_then(move |notif| {
+        match notif {
+            Notification::Publish(msg) => {
+                info!("{}", msg.topic_name);
+                let envelope =
+                    serde_json::from_slice::<compat::IncomingEnvelope>(&msg.payload).unwrap();
+                match envelope.properties() {
+                    compat::IncomingEnvelopeProperties::Response(..) => {
+                        let response = compat::into_response(envelope).unwrap();
+                        let correlation_data =
+                            uuid::Uuid::parse_str(response.properties().correlation_data())
+                                .unwrap();
 
-    let addr = SyncArbiter::start(mqtt_handler_threads, || MqttHandler);
+                        client_copy_for_notifications
+                            .lock()
+                            .unwrap()
+                            .finish_request(correlation_data, response);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        };
+        futures::future::ok(())
+    });
 
-    server::new(move || {
-        App::with_state(AppState {
-            mqtt_handler: addr.clone(),
-            broker_url: broker_url.clone(),
-            mqtt_handler_timeout: mqtt_handler_timeout,
-        })
-        .middleware(middleware::Logger::default())
-        // .resource("/rpc_call", |r| {
-        //     r.method(http::Method::POST).with(rpc_call)
-        // })
-    })
-    .bind(listen_addr)
-    .unwrap()
-    .shutdown_timeout(1)
-    .start();
+    let tcp_stream = TcpListener::bind(&config.web.listen_addr)?;
 
-    let _ = sys.run();
+    let server = ServiceBuilder::new()
+        .config(config.authn)
+        .middleware(LogMiddleware::new("http_gateway::web"))
+        .resource(web::HttpGatewayApp::new(client))
+        .serve(tcp_stream.incoming());
+
+    let server = notifications
+        .into_future()
+        .map_err(|_| ())
+        .join(server)
+        .map(|_| ());
+
+    tokio::run(server);
+
+    Ok(())
 }

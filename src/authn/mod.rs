@@ -1,14 +1,28 @@
-use failure::{format_err, Error};
-use serde_derive::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
-mod jose;
+use failure::{format_err, Error};
+use jsonwebtoken::Algorithm;
+
+pub mod jwt;
+mod serde;
+
+pub type ConfigMap = HashMap<String, Config>;
+
+#[derive(Debug, Deserialize)]
+pub struct Config {
+    audience: String,
+    #[serde(deserialize_with = "serde::algorithm")]
+    algorithm: Algorithm,
+    #[serde(deserialize_with = "serde::file")]
+    key: Vec<u8>,
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub(crate) struct AccountId {
+pub struct AccountId {
     label: String,
     audience: String,
 }
@@ -23,6 +37,10 @@ impl AccountId {
 
     pub(crate) fn audience(&self) -> &str {
         &self.audience
+    }
+
+    pub(crate) fn label(&self) -> &str {
+        &self.label
     }
 }
 
@@ -50,7 +68,7 @@ impl FromStr for AccountId {
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub(crate) struct AgentId {
+pub struct AgentId {
     label: String,
     account_id: AccountId,
 }
@@ -65,6 +83,10 @@ impl AgentId {
 
     pub(crate) fn account_id(&self) -> &AccountId {
         &self.account_id
+    }
+
+    pub(crate) fn label(&self) -> &str {
+        &self.label
     }
 }
 
@@ -96,7 +118,7 @@ impl FromStr for AgentId {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub(crate) trait Authenticable {
+pub trait Authenticable {
     fn account_id(&self) -> AccountId;
     fn agent_id(&self) -> AgentId;
 }

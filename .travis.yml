@@ -36,14 +36,6 @@ jobs:
 script:
   - docker run --rm -d -it -p 1883:1883 -p 9001:9001 eclipse-mosquitto
   - rustup component add rustfmt-preview
-  - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
-  - git submodule update --init --recursive
-  - |
-    git clone https://github.com/eclipse/paho.mqtt.c.git && \
-    cd paho.mqtt.c && sudo apt-get install clang && \
-    git checkout tags/v1.2.0 && \
-    make && sudo make install && \
-    cd .. && rm -rf paho.mqtt.c
   - cargo fmt --all -- --write-mode=diff
   - cargo build
   - cargo test

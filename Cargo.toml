@@ -7,23 +7,22 @@ edition = "2018"
 [dependencies]
 env_logger = "0.6"
 log = "0.4"
+failure = "0.1"
+uuid = "0.7"
 
 futures = "0.1"
-crossbeam-channel = "0.3"
-num_cpus = "1"
-failure = "0.1"
+crossbeam = "0.7"
 
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
-bytes = "0.4"
 base64 = "0.10"
 jsonwebtoken = "5.0"
 config = "0.9"
-
 http = "0.1"
-actix = "0.7"
-actix-web = "0.7"
+
 tower-web = "0.3"
+tower-service = "0.1"
+tokio = "0.1"
 
 rumqtt = { version = "0.30" }
