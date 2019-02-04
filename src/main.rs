@@ -27,44 +27,27 @@ fn main() -> Result<(), Error> {
     info!("Agent Id: {}", agent_id);
     let (client, notifications) = mqtt::AgentBuilder::new(agent_id.clone()).start(&config.mqtt)?;
 
-    let client = std::sync::Arc::new(std::sync::Mutex::new(client));
+    let client = futures_locks::Mutex::new(client);
     let client_copy_for_notifications = client.clone();
 
-    let handle_notifications = move |notif: rumqtt::Publish| -> Result<(), Error> {
-        let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(&notif.payload)?;
-        match envelope.properties() {
-            compat::IncomingEnvelopeProperties::Response(..) => {
-                let response = compat::into_response(envelope)?;
-                let correlation_data =
-                    uuid::Uuid::parse_str(response.properties().correlation_data())?;
-
-                client_copy_for_notifications
-                    .lock()
-                    .unwrap()
-                    .finish_request(correlation_data, response);
-            }
-            _ => {}
-        }
-
-        Ok(())
-    };
-
     let notifications = notifications.for_each(move |notif| {
-        if let Notification::Publish(msg) = notif {
-            info!(
-                "Incoming message: {}",
-                String::from_utf8_lossy(&msg.payload)
-            );
+        client_copy_for_notifications.lock().and_then(|client| {
+            if let Notification::Publish(msg) = notif {
+                info!(
+                    "Incoming message: {}",
+                    String::from_utf8_lossy(&msg.payload)
+                );
 
-            match handle_notifications(msg) {
-                Ok(..) => {}
-                Err(err) => {
-                    error!("Error during notification handling: {}", err);
+                match handle_notifications(client, msg) {
+                    Ok(..) => {}
+                    Err(err) => {
+                        error!("Error during notification handling: {}", err);
+                    }
                 }
             }
-        }
 
-        Ok(())
+            Ok(())
+        })
     });
 
     let tcp_stream = TcpListener::bind(&config.web.listen_addr)?;
@@ -82,6 +65,23 @@ fn main() -> Result<(), Error> {
         .map(|_| ());
 
     tokio::run(server);
+
+    Ok(())
+}
+
+fn handle_notifications<T: std::ops::DerefMut<Target = crate::mqtt::Agent>>(
+    mut client: T,
+    notif: rumqtt::Publish,
+) -> Result<(), Error> {
+    let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(&notif.payload)?;
+    match envelope.properties() {
+        compat::IncomingEnvelopeProperties::Response(..) => {
+            let response = compat::into_response(envelope)?;
+            let correlation_data = uuid::Uuid::parse_str(response.properties().correlation_data())?;
+            client.finish_request(correlation_data, response);
+        }
+        _ => {}
+    }
 
     Ok(())
 }

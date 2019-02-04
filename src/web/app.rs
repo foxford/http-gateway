@@ -1,20 +1,22 @@
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
 
-use failure::{format_err, Error};
+use failure::Error;
 use futures::{future, sync::oneshot::Receiver, Future, IntoFuture};
+use futures_locks::Mutex;
 use serde_derive::Deserialize;
 use tower_web::{impl_web, Extract};
 
 use crate::authn::{AccountId, AgentId};
-use crate::mqtt::{Destination, IncomingResponse, OutgoingRequest, OutgoingRequestProperties};
+use crate::mqtt::{
+    Agent, Destination, IncomingResponse, OutgoingRequest, OutgoingRequestProperties,
+};
 
 pub struct HttpGatewayApp {
-    client: Arc<Mutex<crate::mqtt::Agent>>,
+    client: Mutex<Agent>,
 }
 
 impl HttpGatewayApp {
-    pub fn new(client: Arc<Mutex<crate::mqtt::Agent>>) -> Self {
+    pub fn new(client: Mutex<Agent>) -> Self {
         Self { client }
     }
 }
@@ -53,12 +55,11 @@ impl RequestDestination {
 }
 
 impl HttpGatewayApp {
-    fn request_sync(
-        &self,
+    fn request_sync<T: std::ops::DerefMut<Target = Agent>>(
         req: RequestData,
+        mut client: T,
     ) -> Result<Receiver<IncomingResponse<serde_json::Value>>, Error> {
         let destination = req.destination.validate()?;
-        let mut client = self.client.lock().map_err(|err| format_err!("{}", err))?;
 
         let dest_account_id = match &destination {
             Destination::Unicast(agent_id) => agent_id.account_id(),
@@ -85,13 +86,14 @@ impl_web! {
         #[post("/api/v1/request")]
         fn request(&self, body: RequestData) -> impl Future<Item = serde_json::Value, Error = Error> {
             self
-                .request_sync(body)
-                .into_future()
+                .client.lock()
+                .map_err(|_| failure::err_msg("Unexpected error during lock acqusition"))
+                .and_then(|client| Self::request_sync(body, client).into_future()
                 .and_then(|f| f.map_err(Error::from))
                 .and_then(|response| {
                     let (payload, _props) = response.destructure();
                     future::ok(payload)
-                })
+                }))
         }
     }
 }
