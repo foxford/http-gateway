@@ -84,7 +84,7 @@ impl AgentBuilder {
 pub struct Agent {
     id: AgentId,
     tx: rumqtt::MqttClient,
-    in_flight_requests: HashMap<uuid::Uuid, oneshot::Sender<IncomingResponse<String>>>,
+    in_flight_requests: HashMap<uuid::Uuid, oneshot::Sender<IncomingResponse<serde_json::Value>>>,
 }
 
 impl Agent {
@@ -99,7 +99,7 @@ impl Agent {
     pub fn publish(
         &mut self,
         message: OutgoingRequest<String>,
-    ) -> Result<oneshot::Receiver<IncomingResponse<String>>, Error> {
+    ) -> Result<oneshot::Receiver<IncomingResponse<serde_json::Value>>, Error> {
         let correlation_data = message.properties.correlation_data;
 
         let message = message.into_envelope()?;
@@ -123,7 +123,7 @@ impl Agent {
     pub fn finish_request(
         &mut self,
         correlation_data: uuid::Uuid,
-        response: IncomingResponse<String>,
+        response: IncomingResponse<serde_json::Value>,
     ) {
         if let Some(in_flight_request) = self.in_flight_requests.remove(&correlation_data) {
             in_flight_request.send(response).unwrap();

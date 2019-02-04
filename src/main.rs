@@ -2,8 +2,8 @@
 extern crate tower_web;
 
 use failure::Error;
-use futures::{Future, Stream};
-use log::info;
+use futures::{Future, IntoFuture, Stream};
+use log::{error, info};
 use rumqtt::Notification;
 use tokio::net::TcpListener;
 use tower_web::{middleware::log::LogMiddleware, ServiceBuilder};
@@ -28,33 +28,43 @@ fn main() -> Result<(), Error> {
     let (client, notifications) = mqtt::AgentBuilder::new(agent_id.clone()).start(&config.mqtt)?;
 
     let client = std::sync::Arc::new(std::sync::Mutex::new(client));
-
     let client_copy_for_notifications = client.clone();
 
-    let notifications = notifications.and_then(move |notif| {
-        match notif {
-            Notification::Publish(msg) => {
-                info!("{}", msg.topic_name);
-                let envelope =
-                    serde_json::from_slice::<compat::IncomingEnvelope>(&msg.payload).unwrap();
-                match envelope.properties() {
-                    compat::IncomingEnvelopeProperties::Response(..) => {
-                        let response = compat::into_response(envelope).unwrap();
-                        let correlation_data =
-                            uuid::Uuid::parse_str(response.properties().correlation_data())
-                                .unwrap();
+    let handle_notifications = move |notif: rumqtt::Publish| -> Result<(), Error> {
+        let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(&notif.payload)?;
+        match envelope.properties() {
+            compat::IncomingEnvelopeProperties::Response(..) => {
+                let response = compat::into_response(envelope)?;
+                let correlation_data =
+                    uuid::Uuid::parse_str(response.properties().correlation_data())?;
 
-                        client_copy_for_notifications
-                            .lock()
-                            .unwrap()
-                            .finish_request(correlation_data, response);
-                    }
-                    _ => {}
-                }
+                client_copy_for_notifications
+                    .lock()
+                    .unwrap()
+                    .finish_request(correlation_data, response);
             }
             _ => {}
-        };
-        futures::future::ok(())
+        }
+
+        Ok(())
+    };
+
+    let notifications = notifications.for_each(move |notif| {
+        if let Notification::Publish(msg) = notif {
+            info!(
+                "Incoming message: {}",
+                String::from_utf8_lossy(&msg.payload)
+            );
+
+            match handle_notifications(msg) {
+                Ok(..) => {}
+                Err(err) => {
+                    error!("Error during notification handling: {}", err);
+                }
+            }
+        }
+
+        Ok(())
     });
 
     let tcp_stream = TcpListener::bind(&config.web.listen_addr)?;

@@ -54,7 +54,10 @@ impl RequestDestination {
 }
 
 impl HttpGatewayApp {
-    fn request_sync(&self, req: RequestData) -> Result<Receiver<IncomingResponse<String>>, Error> {
+    fn request_sync(
+        &self,
+        req: RequestData,
+    ) -> Result<Receiver<IncomingResponse<serde_json::Value>>, Error> {
         info!("{:?}", req);
 
         let destination = req.destination.validate()?;
@@ -90,7 +93,7 @@ impl HttpGatewayApp {
 impl_web! {
     impl HttpGatewayApp {
         #[post("/api/v1/request")]
-        fn request(&self, body: RequestData) -> impl Future<Item = SerdeResponse<String>, Error = Error> {
+        fn request(&self, body: RequestData) -> impl Future<Item = SerdeResponse<serde_json::Value>, Error = Error> {
             self
                 .request_sync(body)
                 .into_future()
