@@ -5,7 +5,7 @@ use failure::{format_err, Error};
 use futures::{future, sync::oneshot::Receiver, Future, IntoFuture};
 use log::info;
 use serde_derive::Deserialize;
-use tower_web::{impl_web, response::SerdeResponse, Extract};
+use tower_web::{impl_web, Extract};
 
 use crate::authn::{AccountId, AgentId};
 use crate::mqtt::{Destination, IncomingResponse, OutgoingRequest, OutgoingRequestProperties};
@@ -93,14 +93,14 @@ impl HttpGatewayApp {
 impl_web! {
     impl HttpGatewayApp {
         #[post("/api/v1/request")]
-        fn request(&self, body: RequestData) -> impl Future<Item = SerdeResponse<serde_json::Value>, Error = Error> {
+        fn request(&self, body: RequestData) -> impl Future<Item = serde_json::Value, Error = Error> {
             self
                 .request_sync(body)
                 .into_future()
                 .and_then(|f| f.map_err(Error::from))
                 .and_then(|response| {
                     let (payload, _props) = response.destructure();
-                    future::ok(SerdeResponse::new(payload))
+                    future::ok(payload)
                 })
         }
     }
