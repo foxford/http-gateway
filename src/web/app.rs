@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 
 use failure::{format_err, Error};
 use futures::{future, sync::oneshot::Receiver, Future, IntoFuture};
-use log::info;
 use serde_derive::Deserialize;
 use tower_web::{impl_web, Extract};
 
@@ -58,12 +57,7 @@ impl HttpGatewayApp {
         &self,
         req: RequestData,
     ) -> Result<Receiver<IncomingResponse<serde_json::Value>>, Error> {
-        info!("{:?}", req);
-
         let destination = req.destination.validate()?;
-
-        info!("{:?}", destination);
-
         let mut client = self.client.lock().map_err(|err| format_err!("{}", err))?;
 
         let dest_account_id = match &destination {
@@ -72,8 +66,6 @@ impl HttpGatewayApp {
             Destination::Broadcast(..) => unreachable!(),
         };
 
-        info!("{:?}", dest_account_id);
-
         let agent_id = AgentId::from_str(&req.me)?;
 
         let props = OutgoingRequestProperties::new(
@@ -81,8 +73,6 @@ impl HttpGatewayApp {
             client.response_topic(dest_account_id)?,
             Some(agent_id.into()),
         );
-
-        info!("{:?}", props);
 
         let out = OutgoingRequest::new(req.payload, props, destination);
 
