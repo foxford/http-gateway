@@ -84,7 +84,7 @@ impl HttpGatewayApp {
 impl_web! {
     impl HttpGatewayApp {
         #[post("/api/v1/request")]
-        fn request(&self, body: RequestData) -> impl Future<Item = serde_json::Value, Error = Error> {
+        fn request(&self, body: RequestData, _account_id: AccountId) -> impl Future<Item = serde_json::Value, Error = Error> {
             self
                 .client.lock()
                 .map_err(|_| failure::err_msg("Unexpected error during lock acqusition"))
