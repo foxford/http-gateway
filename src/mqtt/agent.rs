@@ -1,9 +1,12 @@
 use std::collections::HashMap;
+use std::thread;
 
-use crossbeam::{Receiver, TryRecvError};
 use failure::{err_msg, Error};
-use futures::{sync::oneshot, Async, Poll, Stream};
-use log::info;
+use futures::{
+    sync::{mpsc, oneshot},
+    Stream,
+};
+use log::{error, info};
 use rumqtt::{MqttClient, MqttOptions, Notification, QoS, ReconnectOptions};
 
 use super::{
@@ -22,17 +25,20 @@ impl AgentBuilder {
         Self { agent_id }
     }
 
-    pub fn start(self, config: &AgentOptions) -> Result<(Agent, MqttStream), Error> {
+    pub fn start(
+        self,
+        config: &AgentOptions,
+    ) -> Result<(Agent, impl Stream<Item = Notification, Error = ()>), Error> {
         let client_id = Self::mqtt_client_id(&self.agent_id);
         let options = Self::mqtt_options(&client_id, &config)?;
         let (client, rx) = MqttClient::start(options)?;
 
         let mut agent = Agent::new(self.agent_id, client);
-        agent
-            .tx
-            .subscribe(agent.anyone_input_subscription()?, QoS::AtLeastOnce)?;
+        let anyone_input_sub = agent.anyone_input_subscription()?;
+        info!("{}", anyone_input_sub);
+        agent.tx.subscribe(anyone_input_sub, QoS::AtLeastOnce)?;
 
-        let notifications = MqttStream(rx);
+        let notifications = Self::wrap_async(rx);
 
         Ok((agent, notifications))
     }
@@ -54,24 +60,38 @@ impl AgentBuilder {
 
         Ok(opts)
     }
+
+    fn wrap_async(
+        notifications: crossbeam::Receiver<Notification>,
+    ) -> mpsc::UnboundedReceiver<Notification> {
+        let (sender, receiver) = mpsc::unbounded();
+
+        thread::spawn(move || {
+            for msg in notifications {
+                if let Err(err) = sender.unbounded_send(msg) {
+                    error!(
+                        "MqttStream: error sending notification to main stream: {}",
+                        err
+                    );
+                }
+            }
+        });
+
+        receiver
+    }
 }
 
 pub struct Agent {
     id: AgentId,
     tx: rumqtt::MqttClient,
-    input_topic: String,
     in_flight_requests: HashMap<uuid::Uuid, oneshot::Sender<IncomingResponse<String>>>,
 }
 
 impl Agent {
     fn new(id: AgentId, tx: MqttClient) -> Self {
-        let input_topic = format!("agents/{agent}/api/v1/in", agent = id);
-        println!("{}", input_topic);
-
         Self {
             id,
             tx,
-            input_topic,
             in_flight_requests: HashMap::new(),
         }
     }
@@ -116,26 +136,9 @@ impl Agent {
         sub.subscription_topic(&self.id)
     }
 
-    // TODO: overhead?
     pub fn response_topic(&self, account_id: &AccountId) -> Result<String, Error> {
         let src = Source::Unicast(Some(account_id));
         let sub = ResponseSubscription::new(src);
         sub.subscription_topic(&self.id)
-    }
-}
-
-pub struct MqttStream(Receiver<Notification>);
-
-impl Stream for MqttStream {
-    type Item = Notification;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match self.0.try_recv() {
-            Ok(notification) => Ok(Async::Ready(Some(notification))),
-            Err(TryRecvError::Empty) => Ok(Async::NotReady),
-            // stop stream if channel has been dismantled
-            Err(TryRecvError::Disconnected) => Ok(Async::Ready(None)),
-        }
     }
 }
