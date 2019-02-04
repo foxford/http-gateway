@@ -30,7 +30,7 @@ impl AgentBuilder {
         let mut agent = Agent::new(self.agent_id, client);
         agent
             .tx
-            .subscribe(agent.anyone_input_subscription(), QoS::AtLeastOnce)?;
+            .subscribe(agent.anyone_input_subscription()?, QoS::AtLeastOnce)?;
 
         let notifications = MqttStream(rx);
 
@@ -97,7 +97,6 @@ impl Agent {
 
         self.in_flight_requests.insert(correlation_data, sender);
 
-        // TODO: we need to get response with request's correlation data (need to match somehow and somewhere)
         Ok(receiver)
     }
 
@@ -111,14 +110,15 @@ impl Agent {
         }
     }
 
-    // TODO: SubscriptionTopicBuilder -- Destination::Multicast(me)
-    fn anyone_input_subscription(&self) -> String {
-        format!("{topic}/+", topic = self.input_topic)
+    fn anyone_input_subscription(&self) -> Result<String, Error> {
+        let src = Source::Unicast(None);
+        let sub = ResponseSubscription::new(src);
+        sub.subscription_topic(&self.id)
     }
 
     // TODO: overhead?
     pub fn response_topic(&self, account_id: &AccountId) -> Result<String, Error> {
-        let src = Source::Unicast(account_id.clone());
+        let src = Source::Unicast(Some(account_id));
         let sub = ResponseSubscription::new(src);
         sub.subscription_topic(&self.id)
     }
