@@ -6,7 +6,7 @@ use failure::{format_err, Error};
 use serde_derive::Deserialize;
 
 use crate::authn::{AccountId, AgentId, Authenticable};
-pub use agent::{Agent, AgentBuilder};
+pub use agent::{Agent, AgentBuilder, ConnectionMode};
 
 mod agent;
 pub mod compat;
@@ -273,6 +273,10 @@ impl OutgoingRequestProperties {
             authn,
             correlation_data: uuid::Uuid::new_v4(),
         }
+    }
+
+    pub fn correlation_data(&self) -> &uuid::Uuid {
+        &self.correlation_data
     }
 }
 

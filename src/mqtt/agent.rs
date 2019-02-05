@@ -1,54 +1,90 @@
-use std::collections::HashMap;
-use std::thread;
+use std::fmt;
 
+use crossbeam::Receiver;
 use failure::{err_msg, Error};
-use futures::{
-    sync::{mpsc, oneshot},
-    Stream,
-};
-use log::{error, info};
+use log::info;
 use rumqtt::{MqttClient, MqttOptions, Notification, QoS, ReconnectOptions};
 
 use super::{
-    compat::IntoEnvelope, AgentOptions, IncomingResponse, OutgoingRequest, Publishable,
-    ResponseSubscription, Source, SubscriptionTopic,
+    compat::IntoEnvelope, AgentOptions, OutgoingRequest, Publishable, SharedGroup,
+    SubscriptionTopic,
 };
-use crate::authn::{AccountId, AgentId};
+use crate::authn::AgentId;
+
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug)]
+pub enum ConnectionMode {
+    Agent,
+    Bridge,
+}
+
+impl fmt::Display for ConnectionMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ConnectionMode::Agent => "agents",
+                ConnectionMode::Bridge => "bridge-agents",
+            }
+        )
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]
 pub struct AgentBuilder {
     agent_id: AgentId,
+    version: String,
+    mode: ConnectionMode,
 }
 
 impl AgentBuilder {
     pub fn new(agent_id: AgentId) -> Self {
-        Self { agent_id }
+        Self {
+            agent_id,
+            version: String::from("v1.mqtt3"),
+            mode: ConnectionMode::Agent,
+        }
     }
 
-    pub fn start(
-        self,
-        config: &AgentOptions,
-    ) -> Result<(Agent, impl Stream<Item = Notification, Error = ()>), Error> {
-        let client_id = Self::mqtt_client_id(&self.agent_id);
+    pub fn version(self, version: &str) -> Self {
+        Self {
+            agent_id: self.agent_id,
+            version: version.to_owned(),
+            mode: self.mode,
+        }
+    }
+
+    pub fn mode(self, mode: ConnectionMode) -> Self {
+        Self {
+            agent_id: self.agent_id,
+            version: self.version,
+            mode,
+        }
+    }
+
+    pub fn start(self, config: &AgentOptions) -> Result<(Agent, Receiver<Notification>), Error> {
+        let client_id = self.mqtt_client_id();
         info!("Client Id: {}", client_id);
 
         let options = Self::mqtt_options(&client_id, &config)?;
         let (client, rx) = MqttClient::start(options)?;
 
-        let mut agent = Agent::new(self.agent_id, client);
+        let agent = Agent::new(self.agent_id, client);
 
-        let anyone_input_sub = agent.anyone_input_subscription()?;
-        info!("{}", anyone_input_sub);
-
-        agent.tx.subscribe(anyone_input_sub, QoS::AtLeastOnce)?;
-
-        let notifications = Self::wrap_async(rx);
-
-        Ok((agent, notifications))
+        Ok((agent, rx))
     }
 
-    fn mqtt_client_id(agent_id: &AgentId) -> String {
-        format!("v1.mqtt3/bridge-agents/{agent_id}", agent_id = agent_id)
+    fn mqtt_client_id(&self) -> String {
+        format!(
+            "{version}/{mode}/{agent_id}",
+            version = self.version,
+            mode = self.mode,
+            agent_id = self.agent_id,
+        )
     }
 
     fn mqtt_options(client_id: &str, config: &AgentOptions) -> Result<MqttOptions, Error> {
@@ -64,48 +100,23 @@ impl AgentBuilder {
 
         Ok(opts)
     }
-
-    fn wrap_async(
-        notifications: crossbeam::Receiver<Notification>,
-    ) -> mpsc::UnboundedReceiver<Notification> {
-        let (sender, receiver) = mpsc::unbounded();
-
-        thread::spawn(move || {
-            for msg in notifications {
-                if let Err(err) = sender.unbounded_send(msg) {
-                    error!(
-                        "MqttStream: error sending notification to main stream: {}",
-                        err
-                    );
-                }
-            }
-        });
-
-        receiver
-    }
 }
 
 pub struct Agent {
     id: AgentId,
     tx: rumqtt::MqttClient,
-    in_flight_requests: HashMap<uuid::Uuid, oneshot::Sender<IncomingResponse<serde_json::Value>>>,
 }
 
 impl Agent {
     fn new(id: AgentId, tx: MqttClient) -> Self {
-        Self {
-            id,
-            tx,
-            in_flight_requests: HashMap::new(),
-        }
+        Self { id, tx }
     }
 
-    pub fn publish(
-        &mut self,
-        message: OutgoingRequest<String>,
-    ) -> Result<oneshot::Receiver<IncomingResponse<serde_json::Value>>, Error> {
-        let correlation_data = message.properties.correlation_data;
+    pub fn id(&self) -> &AgentId {
+        &self.id
+    }
 
+    pub fn publish(&mut self, message: OutgoingRequest<String>) -> Result<(), Error> {
         let message = message.into_envelope()?;
 
         info!("{:?}", message);
@@ -115,34 +126,24 @@ impl Agent {
 
         self.tx
             .publish(topic, QoS::AtLeastOnce, false, bytes)
-            .map_err(Error::from)?;
-
-        let (sender, receiver) = oneshot::channel();
-
-        self.in_flight_requests.insert(correlation_data, sender);
-
-        Ok(receiver)
+            .map_err(Error::from)
     }
 
-    pub fn finish_request(
+    pub(crate) fn subscribe<S>(
         &mut self,
-        correlation_data: uuid::Uuid,
-        response: IncomingResponse<serde_json::Value>,
-    ) {
-        if let Some(in_flight_request) = self.in_flight_requests.remove(&correlation_data) {
-            in_flight_request.send(response).unwrap();
-        }
-    }
+        subscription: &S,
+        qos: QoS,
+        maybe_group: Option<&SharedGroup>,
+    ) -> Result<(), Error>
+    where
+        S: SubscriptionTopic,
+    {
+        let mut topic = subscription.subscription_topic(&self.id)?;
+        if let Some(ref group) = maybe_group {
+            topic = format!("$share/{group}/{topic}", group = group, topic = topic);
+        };
 
-    fn anyone_input_subscription(&self) -> Result<String, Error> {
-        let src = Source::Unicast(None);
-        let sub = ResponseSubscription::new(src);
-        sub.subscription_topic(&self.id)
-    }
-
-    pub fn response_topic(&self, account_id: &AccountId) -> Result<String, Error> {
-        let src = Source::Unicast(Some(account_id));
-        let sub = ResponseSubscription::new(src);
-        sub.subscription_topic(&self.id)
+        self.tx.subscribe(topic, qos)?;
+        Ok(())
     }
 }

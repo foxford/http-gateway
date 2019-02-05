@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 
-mod app;
+mod request;
 
-pub use app::HttpGatewayApp;
+pub use request::{InFlightRequests, RequestResource};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
