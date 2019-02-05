@@ -1,51 +1,35 @@
 language: rust
+rust:
+  - stable
 cache:
   cargo: true
-  directories:
-    - ${HOME}/google-cloud-sdk
-sudo: required
+before_cache:
+  - rm -rf ${TRAVIS_HOME}/.cargo/registry
 git:
   depth: 1
-  submodules: false
 jobs:
   include:
-    - stage: commit
-      rust: stable
-    - stage: release
-      sudo: required
-      services: docker
-      env:
-        - APP=http-gateway
-      script:
-        - |
-          source scripts/ns.setup.profile &&
-          scripts/gcloud.install.sh &&
-          scripts/k8s.install.sh &&
-          scripts/k8s.cluster.init.sh &&
-          scripts/skaffold.install.sh &&
-          PATH_TO_FILE=${TRAVIS_BUILD_DIR}/k8s scripts/k8s.chart.download.sh &&
-          docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD} &&
-          scripts/skaffold.init.sh &&
-          scripts/skaffold.run.sh
-    - stage: publish
-      rust: stable
-      after_success:
-        - |
-          scripts/gcloud.install.sh &&
-          scripts/deploy-docs.sh
-script:
-  - docker run --rm -d -it -p 1883:1883 -p 9001:9001 eclipse-mosquitto
-  - rustup component add rustfmt-preview
-  - cargo fmt --all -- --write-mode=diff
-  - cargo build
-  - cargo test
+    - stage: check
+      name: Tests
+      script: cargo test
+    - stage: check
+      name : Rustfmt
+      install: rustup component add rustfmt-preview
+      script: cargo fmt -- --check
+    - stage: check
+      name: Clippy
+      install: rustup component add clippy-preview
+      script: cargo clippy
+    # - stage: check
+    #   name: Docs
+    #   install: cargo install mdbook --vers 0.2.2 --force
+    #   script: mdbook build docs && deploy/docs.sh
+    - stage: deploy
+      name: Kubernetes
+      script: deploy/run.sh
 stages:
-  - name: warmup
-  - name: commit
-  - name: test
-  - name: release
-    if: branch = master AND type = push
-  - name: migrate
-    if: (branch = master AND type = push) AND env(TRAVIS_TAG) IS present
-  - name: publish
-    if: branch = master AND type = push
+  - name: check
+  - name: deploy
+    if: (branch = master AND type = push) OR tag IS present
+notifications:
+  email: false

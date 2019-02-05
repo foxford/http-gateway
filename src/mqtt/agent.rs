@@ -30,12 +30,16 @@ impl AgentBuilder {
         config: &AgentOptions,
     ) -> Result<(Agent, impl Stream<Item = Notification, Error = ()>), Error> {
         let client_id = Self::mqtt_client_id(&self.agent_id);
+        info!("Client Id: {}", client_id);
+
         let options = Self::mqtt_options(&client_id, &config)?;
         let (client, rx) = MqttClient::start(options)?;
 
         let mut agent = Agent::new(self.agent_id, client);
+
         let anyone_input_sub = agent.anyone_input_subscription()?;
         info!("{}", anyone_input_sub);
+
         agent.tx.subscribe(anyone_input_sub, QoS::AtLeastOnce)?;
 
         let notifications = Self::wrap_async(rx);
