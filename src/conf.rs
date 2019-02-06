@@ -2,10 +2,11 @@ use config;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub(crate) id: crate::authn::AccountId,
-    pub(crate) authn: crate::authn::ConfigMap,
-    pub(crate) web: crate::web::Config,
-    pub(crate) mqtt: crate::mqtt::AgentOptions,
+    pub id: crate::authn::AccountId,
+    pub authn: crate::authn::ConfigMap,
+    pub web: crate::web::Config,
+    pub mqtt: crate::mqtt::AgentOptions,
+    pub events: crate::events::ConfigMap,
 }
 
 pub fn load() -> Result<Config, config::ConfigError> {

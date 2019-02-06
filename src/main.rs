@@ -12,6 +12,7 @@ use tower_web::{middleware::log::LogMiddleware, ServiceBuilder};
 
 mod authn;
 mod conf;
+mod events;
 mod mqtt;
 mod web;
 
@@ -36,6 +37,8 @@ fn main() -> Result<(), Error> {
     let src = mqtt::Source::Unicast(None);
     let sub = mqtt::ResponseSubscription::new(src);
     agent.subscribe(&sub, rumqtt::QoS::AtLeastOnce, None)?;
+
+    // TODO: subscribe to all configured topics
 
     let in_flight_requests = web::InFlightRequests::new();
     let in_flight_requests = futures_locks::Mutex::new(in_flight_requests);
@@ -113,6 +116,11 @@ fn handle_message(
             let response = compat::into_response(envelope)?;
             let correlation_data = uuid::Uuid::parse_str(response.properties().correlation_data())?;
             in_flight_requests.finish_request(correlation_data, response);
+        }
+        compat::IncomingEnvelopeProperties::Event(..) => {
+            // let event = compat::into_event(envelope)?;
+            // TODO: find out audience (from topic?)
+            // TODO: send event to configured callback
         }
         _ => {}
     }
