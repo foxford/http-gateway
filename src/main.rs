@@ -1,83 +1,121 @@
-extern crate actix;
-extern crate actix_web;
-extern crate bytes;
-extern crate env_logger;
 #[macro_use]
-extern crate failure;
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate num_cpus;
-extern crate paho_mqtt as mqtt;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
+extern crate tower_web;
 
-mod actors;
-mod api;
-mod application;
-mod defaults;
-mod errors;
-mod extractors;
+use std::thread;
 
-use actix::SyncArbiter;
-use actix_web::{http, middleware, server, App};
-use actors::mqtt_handler::MqttHandler;
-use api::rpc_call::rpc_call;
-use application::*;
-use std::env;
+use failure::Error;
+use futures::{sync::mpsc, Future, IntoFuture, Stream};
+use log::{error, info};
+use rumqtt::Notification;
+use tokio::net::TcpListener;
+use tower_web::{middleware::log::LogMiddleware, ServiceBuilder};
 
-fn main() {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "actix_web=info");
+mod authn;
+mod conf;
+mod mqtt;
+mod web;
+
+use mqtt::compat;
+
+fn main() -> Result<(), Error> {
+    env_logger::init();
+
+    let config = conf::load()?;
+    info!("Config: {:?}", config);
+
+    let label = uuid::Uuid::new_v4().to_string();
+
+    let agent_id = authn::AgentId::new(&label, config.id);
+    info!("Agent Id: {}", agent_id);
+    let (mut agent, messages) = mqtt::AgentBuilder::new(agent_id)
+        .mode(mqtt::ConnectionMode::Bridge)
+        .start(&config.mqtt)?;
+
+    let messages = wrap_async(messages);
+
+    let src = mqtt::Source::Unicast(None);
+    let sub = mqtt::ResponseSubscription::new(src);
+    agent.subscribe(&sub, rumqtt::QoS::AtLeastOnce, None)?;
+
+    let in_flight_requests = web::InFlightRequests::new();
+    let in_flight_requests = futures_locks::Mutex::new(in_flight_requests);
+    let in_flight_requests_copy = in_flight_requests.clone();
+
+    let messages = messages.for_each(move |msg| {
+        in_flight_requests_copy
+            .lock()
+            .and_then(|mut in_flight_requests| {
+                if let Notification::Publish(msg) = msg {
+                    info!(
+                        "Incoming message: {}",
+                        String::from_utf8_lossy(&msg.payload)
+                    );
+
+                    match handle_message(&mut in_flight_requests, msg) {
+                        Ok(..) => {}
+                        Err(err) => {
+                            error!("Error during notification handling: {}", err);
+                        }
+                    }
+                }
+
+                Ok(())
+            })
+    });
+
+    let request_resource = web::RequestResource::new(agent, in_flight_requests);
+
+    let tcp_stream = TcpListener::bind(&config.web.listen_addr)?;
+
+    let server = ServiceBuilder::new()
+        .config(config.authn)
+        .middleware(LogMiddleware::new("http_gateway::web"))
+        .resource(request_resource)
+        .serve(tcp_stream.incoming());
+
+    let server = messages
+        .into_future()
+        .map_err(|_| ())
+        .join(server)
+        .map(|_| ());
+
+    tokio::run(server);
+
+    Ok(())
+}
+
+fn wrap_async(
+    notifications: crossbeam::Receiver<Notification>,
+) -> mpsc::UnboundedReceiver<Notification> {
+    let (sender, receiver) = mpsc::unbounded();
+
+    thread::spawn(move || {
+        for msg in notifications {
+            if let Err(err) = sender.unbounded_send(msg) {
+                error!(
+                    "MqttStream: error sending notification to main stream: {}",
+                    err
+                );
+            }
+        }
+    });
+
+    receiver
+}
+
+fn handle_message(
+    in_flight_requests: &mut crate::web::InFlightRequests,
+    notif: rumqtt::Publish,
+) -> Result<(), Error> {
+    let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(&notif.payload)?;
+    match envelope.properties() {
+        compat::IncomingEnvelopeProperties::Response(..) => {
+            let response = compat::into_response(envelope)?;
+            let correlation_data = uuid::Uuid::parse_str(response.properties().correlation_data())?;
+            in_flight_requests.finish_request(correlation_data, response);
+        }
+        _ => {}
     }
 
-    let broker_url = env::var("MQTT_BROKER_URL").unwrap_or(DEFAULT_BROKER_URL.to_owned());
-
-    let listen_addr = env::var("LISTEN_ADDR").unwrap_or(DEFAULT_LISTEN_ADDR.to_owned());
-
-    let mqtt_handler_coefficient = match env::var("MQTT_HANDLER_COEFFICIENT") {
-        Ok(coef) => coef
-            .parse::<usize>()
-            .unwrap_or_else(|_| DEFAULT_MQTT_HANDLER_COEFFICIENT),
-        Err(_) => DEFAULT_MQTT_HANDLER_COEFFICIENT,
-    };
-
-    let mqtt_handler_threads = num_cpus::get() * mqtt_handler_coefficient;
-    let mqtt_handler_threads = match env::var("MQTT_HANDLER_THREADS") {
-        Ok(num) => num
-            .parse::<usize>()
-            .unwrap_or_else(|_| mqtt_handler_threads),
-        Err(_) => mqtt_handler_threads,
-    };
-
-    let mqtt_handler_timeout = match env::var("MQTT_HANDLER_TIMEOUT") {
-        Ok(timeout) => timeout
-            .parse::<u64>()
-            .unwrap_or_else(|_| DEFAULT_MQTT_HANDLER_TIMEOUT),
-        Err(_) => DEFAULT_MQTT_HANDLER_TIMEOUT,
-    };
-
-    env_logger::init();
-    let sys = actix::System::new("http-gateway");
-
-    let addr = SyncArbiter::start(mqtt_handler_threads, || MqttHandler);
-
-    server::new(move || {
-        App::with_state(AppState {
-            mqtt_handler: addr.clone(),
-            broker_url: broker_url.clone(),
-            mqtt_handler_timeout: mqtt_handler_timeout,
-        })
-        .middleware(middleware::Logger::default())
-        .resource("/rpc_call", |r| {
-            r.method(http::Method::POST).with3(rpc_call)
-        })
-    })
-    .bind(listen_addr)
-    .unwrap()
-    .shutdown_timeout(1)
-    .start();
-
-    let _ = sys.run();
+    Ok(())
 }

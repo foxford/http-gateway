@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: http-gateway-configmap
-data:
-  mqtt-host: 'mqtt.domain.gtld'

@@ -1,0 +1,14 @@
+[mqtt]
+uri = "mqtt://192.168.99.100:1883"
+
+[web]
+listen_addr = "127.0.0.1:8000"
+
+[authn."iam.example.net"]
+audience = "example.net"
+algorithm = "HS256"
+key = "data/keys/iam.key.binary.sample"
+
+[id]
+label = "http-gateway"
+audience = "example.net"

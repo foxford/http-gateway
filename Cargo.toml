@@ -1,23 +1,29 @@
 [package]
 name = "http-gateway"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Artem Tolpekin <a.tolpekin@netology-group.ru>"]
+edition = "2018"
 
 [dependencies]
-futures = "0.1"
-env_logger = "0.5"
+env_logger = "0.6"
 log = "0.4"
+failure = "0.1"
+uuid = "0.7"
+
+futures = "0.1"
+futures-locks = "0.3"
+crossbeam = "0.7"
 
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
-bytes = "0.4"
+base64 = "0.10"
+jsonwebtoken = "5.0"
+config = "0.9"
+http = "0.1"
 
-actix = "0.5"
-actix-web = "0.5"
+tower-web = "0.3"
+tower-service = "0.1"
+tokio = "0.1"
 
-paho-mqtt = { path = "vendor/paho.mqtt.rust" }
-
-num_cpus = "1.8"
-failure = "0.1"
-
+rumqtt = { version = "0.30" }
