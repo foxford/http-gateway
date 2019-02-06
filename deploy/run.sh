@@ -58,6 +58,8 @@ function FILE_FROM_GITHUB() {
         "${URI}"
 }
 
+FILE_FROM_GITHUB "https://api.github.com/repos/netology-group/environment/contents/cluster/k8s/apps/http-gateway/ns/${NAMESPACE}/http-gateway.yaml"
+FILE_FROM_GITHUB "https://api.github.com/repos/netology-group/environment/contents/cluster/k8s/apps/http-gateway/ns/${NAMESPACE}/http-gateway-service.yaml"
 FILE_FROM_GITHUB "https://api.github.com/repos/netology-group/environment/contents/cluster/k8s/apps/http-gateway/ns/${NAMESPACE}/http-gateway-ingress.yaml"
 FILE_FROM_GITHUB "https://api.github.com/repos/netology-group/environment/contents/cluster/k8s/apps/http-gateway/ns/${NAMESPACE}/http-gateway-config.yaml"
 FILE_FROM_GITHUB "https://api.github.com/repos/netology-group/environment/contents/cluster/k8s/apps/http-gateway/ns/${NAMESPACE}/http-gateway-environment.yaml"
