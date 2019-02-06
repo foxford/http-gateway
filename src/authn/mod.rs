@@ -10,7 +10,7 @@ mod serde;
 
 pub type ConfigMap = HashMap<String, Config>;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     audience: String,
     #[serde(deserialize_with = "serde::algorithm")]
@@ -21,7 +21,7 @@ pub struct Config {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct AccountId {
     label: String,
     audience: String,

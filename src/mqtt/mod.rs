@@ -97,10 +97,17 @@ impl From<&AuthnProperties> for AgentId {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct IncomingEventProperties {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct IncomingEventProperties {
+    target_audience: String,
     #[serde(flatten)]
     authn: AuthnProperties,
+}
+
+impl IncomingEventProperties {
+    pub fn target_audience(&self) -> &str {
+        &self.target_audience
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
