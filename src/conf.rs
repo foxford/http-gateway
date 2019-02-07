@@ -6,7 +6,7 @@ pub struct Config {
     pub authn: crate::authn::ConfigMap,
     pub web: crate::web::Config,
     pub mqtt: crate::mqtt::AgentOptions,
-    pub events: crate::events::ConfigMap,
+    pub events: crate::event::ConfigMap,
 }
 
 pub fn load() -> Result<Config, config::ConfigError> {

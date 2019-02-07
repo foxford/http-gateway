@@ -12,7 +12,7 @@ use tower_web::{middleware::log::LogMiddleware, ServiceBuilder};
 
 mod authn;
 mod conf;
-mod events;
+mod event;
 mod mqtt;
 mod web;
 
@@ -56,7 +56,7 @@ fn main() -> Result<(), Error> {
 
     let config_copy = config.clone();
 
-    let (event_sender, event_stream) = events::event_handler();
+    let (event_sender, event_stream) = event::event_handler();
     let event_stream = event_stream.into_future().map_err(|_| ());
 
     let messages = messages.for_each(move |msg| {
@@ -129,7 +129,7 @@ fn handle_message(
     in_flight_requests: &mut crate::web::InFlightRequests,
     notif: rumqtt::Publish,
     config: &conf::Config,
-    event_sender: &mpsc::UnboundedSender<events::Event>,
+    event_sender: &mpsc::UnboundedSender<event::Event>,
 ) -> Result<(), Error> {
     let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(&notif.payload)?;
     match envelope.properties() {
@@ -146,7 +146,7 @@ fn handle_message(
                 let account_id = event.properties().account_id();
 
                 if audience_config.sources.contains(&account_id) {
-                    event_sender.unbounded_send(events::Event::new(
+                    event_sender.unbounded_send(event::Event::new(
                         event,
                         audience_config.callback.to_owned(),
                     ))?;
