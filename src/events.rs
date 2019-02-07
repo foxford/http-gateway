@@ -12,7 +12,7 @@ pub type ConfigMap = HashMap<String, Config>;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub callback: String,
-    pub apps: Vec<AccountId>,
+    pub sources: Vec<AccountId>,
 }
 
 #[derive(Debug)]

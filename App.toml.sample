@@ -15,6 +15,6 @@ audience = "example.net"
 
 [events."iam.example.net"]
 callback = "http://localhost:8000/event"
-apps = [
+sources = [
   {label = "test-app", audience = "example.net"}
 ]

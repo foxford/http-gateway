@@ -42,7 +42,7 @@ fn main() -> Result<(), Error> {
 
     // Subscribe for all configured events
     for (audience, audience_conf) in &config.events {
-        for app in &audience_conf.apps {
+        for app in &audience_conf.sources {
             let uri = format!("audiences/{}", audience);
             let src = mqtt::Source::Broadcast(&app, &uri);
             let sub = mqtt::EventSubscription::new(src);
@@ -145,7 +145,7 @@ fn handle_message(
             if let Some(audience_config) = config.events.get(audience) {
                 let account_id = event.properties().account_id();
 
-                if audience_config.apps.contains(&account_id) {
+                if audience_config.sources.contains(&account_id) {
                     event_sender.unbounded_send(events::Event::new(
                         event,
                         audience_config.callback.to_owned(),
