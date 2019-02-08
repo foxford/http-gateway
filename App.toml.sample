@@ -12,3 +12,9 @@ key = "data/keys/iam.key.binary.sample"
 [id]
 label = "http-gateway"
 audience = "example.net"
+
+[events."iam.example.net"]
+callback = "http://localhost:8000/event"
+sources = [
+  {label = "test-app", audience = "example.net"}
+]

@@ -97,8 +97,8 @@ impl From<&AuthnProperties> for AgentId {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct IncomingEventProperties {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct IncomingEventProperties {
     #[serde(flatten)]
     authn: AuthnProperties,
 }

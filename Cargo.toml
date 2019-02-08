@@ -25,5 +25,5 @@ http = "0.1"
 tower-web = "0.3"
 tower-service = "0.1"
 tokio = "0.1"
-
+reqwest = "0.9"
 rumqtt = { version = "0.30" }
