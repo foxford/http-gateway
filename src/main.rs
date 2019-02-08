@@ -1,9 +1,10 @@
 #[macro_use]
 extern crate tower_web;
 
+use std::path::Path;
 use std::thread;
 
-use failure::Error;
+use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, IntoFuture, Stream};
 use log::{error, info};
 use rumqtt::Notification;
@@ -141,7 +142,8 @@ fn handle_message(
         compat::IncomingEnvelopeProperties::Event(..) => {
             let event = compat::into_event::<serde_json::Value>(envelope)?;
 
-            let audience = event.properties().target_audience();
+            let audience = extract_audience(&notif.topic_name)?;
+
             if let Some(audience_config) = config.events.get(audience) {
                 let account_id = event.properties().account_id();
 
@@ -157,4 +159,40 @@ fn handle_message(
     }
 
     Ok(())
+}
+
+fn extract_audience(topic: &str) -> Result<&str, Error> {
+    let topic = Path::new(topic);
+    let audience = topic
+        .file_name()
+        .ok_or_else(|| format_err!("topic without last part aka filename: {}", topic.display()))?;
+
+    if topic
+        .parent()
+        .map_or(false, |parent| parent.ends_with("audiences"))
+    {
+        let audience = audience
+            .to_str()
+            .ok_or_else(|| format_err!("non utf-8 characters in audience name: {:?}", audience))?;
+        Ok(audience)
+    } else {
+        Err(format_err!("invalid topic format: {}", topic.display()))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn extracts_audience() {
+        let topic = "test/test/test/audiences/test-audience";
+        let res = super::extract_audience(topic);
+
+        assert!(res.is_ok());
+        assert_eq!("test-audience", res.unwrap());
+
+        let topic = "test/test/test/audiences";
+        let res = super::extract_audience(topic);
+        assert!(res.is_err());
+        dbg!(res);
+    }
 }
