@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate tower_web;
 
-use std::path::Path;
 use std::thread;
 
 use failure::{format_err, Error};
@@ -162,21 +161,46 @@ fn handle_message(
 }
 
 fn extract_audience(topic: &str) -> Result<&str, Error> {
-    let topic = Path::new(topic);
-    let audience = topic
-        .file_name()
-        .ok_or_else(|| format_err!("topic without last part aka filename: {}", topic.display()))?;
+    use std::ffi::OsStr;
+    use std::path::{Component, Path};
 
-    if topic
-        .parent()
-        .map_or(false, |parent| parent.ends_with("audiences"))
-    {
-        let audience = audience
-            .to_str()
-            .ok_or_else(|| format_err!("non utf-8 characters in audience name: {:?}", audience))?;
-        Ok(audience)
+    let topic_path = Path::new(topic);
+    let mut topic = topic_path.components();
+
+    let events_literal = Some(Component::Normal(OsStr::new("events")));
+    if topic.next_back() == events_literal {
+
     } else {
-        Err(format_err!("invalid topic format: {}", topic.display()))
+        return Err(format_err!(
+            "topic does not match the pattern 'audiences/AUDIENCE/events': {}",
+            topic_path.display()
+        ));
+    }
+
+    let maybe_audience = topic.next_back();
+
+    let audiences_literal = Some(Component::Normal(OsStr::new("audiences")));
+    if topic.next_back() == audiences_literal {
+        match maybe_audience {
+            Some(Component::Normal(audience)) => {
+                let audience = audience.to_str().ok_or_else(|| {
+                    format_err!(
+                        "non utf-8 characters in audience name: {}",
+                        topic_path.display()
+                    )
+                })?;
+                Ok(audience)
+            }
+            _ => Err(format_err!(
+                "topic does not match the pattern 'audiences/AUDIENCE/events': {}",
+                topic_path.display()
+            )),
+        }
+    } else {
+        Err(format_err!(
+            "topic does not match the pattern 'audiences/AUDIENCE/events': {}",
+            topic_path.display()
+        ))
     }
 }
 
@@ -184,13 +208,18 @@ fn extract_audience(topic: &str) -> Result<&str, Error> {
 mod test {
     #[test]
     fn extracts_audience() {
-        let topic = "test/test/test/audiences/test-audience";
+        let topic = "test/test/test/audiences/test-audience/events";
         let res = super::extract_audience(topic);
 
         assert!(res.is_ok());
         assert_eq!("test-audience", res.unwrap());
 
         let topic = "test/test/test/audiences";
+        let res = super::extract_audience(topic);
+        assert!(res.is_err());
+        dbg!(res);
+
+        let topic = "test/test/test/audiences/events";
         let res = super::extract_audience(topic);
         assert!(res.is_err());
         dbg!(res);
