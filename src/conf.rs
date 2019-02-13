@@ -2,10 +2,10 @@ use config;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub id: crate::authn::AccountId,
+    pub id: svc_authn::AccountId,
     pub authn: crate::authn::ConfigMap,
     pub web: crate::web::Config,
-    pub mqtt: crate::mqtt::AgentOptions,
+    pub mqtt: svc_agent::mqtt::AgentConfig,
     pub events: crate::event::ConfigMap,
 }
 
