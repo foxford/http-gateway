@@ -5,13 +5,13 @@ use failure::Error;
 use futures::{future, sync::oneshot, Future, IntoFuture};
 use futures_locks::{Mutex, MutexFut};
 use serde_derive::Deserialize;
+use svc_authn::AccountId;
 use tower_web::{impl_web, Extract};
 
-use crate::authn::{AccountId, AgentId};
-use crate::mqtt::{
-    Agent, Destination, IncomingResponse, OutgoingRequest, OutgoingRequestProperties,
-    ResponseSubscription, Source, SubscriptionTopic,
+use svc_agent::mqtt::{
+    Agent, IncomingResponse, OutgoingRequest, OutgoingRequestProperties, SubscriptionTopic, compat::IntoEnvelope
 };
+use svc_agent::{AgentId, Destination, ResponseSubscription, Source};
 
 pub struct InFlightRequests {
     map: HashMap<uuid::Uuid, oneshot::Sender<IncomingResponse<serde_json::Value>>>,
@@ -84,12 +84,11 @@ impl RequestResource {
         let sub = ResponseSubscription::new(src);
         let response_topic = sub.subscription_topic(agent.id())?;
 
-        let props = OutgoingRequestProperties::new(req.method, response_topic, Some(me.into()));
-
-        let correlation_data = props.correlation_data().to_owned();
+        let correlation_data = uuid::Uuid::new_v4();
+        let props = OutgoingRequestProperties::new(req.method, response_topic, Some(me.into()), correlation_data.to_string());
 
         let out = OutgoingRequest::new(req.payload, props, Destination::Multicast(destination));
-        agent.publish(out)?;
+        agent.publish(&out.into_envelope()?)?;
 
         Ok(in_flight_requests.save_request(correlation_data))
     }
@@ -109,7 +108,7 @@ impl_web! {
                 ).into_future()
                 .and_then(|f| f.map_err(Error::from))
                 .and_then(|response| {
-                    let (payload, _props) = response.destructure();
+                    let payload = response.payload().clone();
                     future::ok(payload)
                 }))
         }

@@ -7,17 +7,17 @@ use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, IntoFuture, Stream};
 use log::{error, info};
 use rumqtt::Notification;
+use svc_agent::{
+    mqtt::{compat, AgentBuilder, ConnectionMode},
+    AgentId, EventSubscription, ResponseSubscription, Source,
+};
+use svc_authn::Authenticable;
 use tokio::net::TcpListener;
 use tower_web::{middleware::log::LogMiddleware, ServiceBuilder};
 
-mod authn;
 mod conf;
 mod event;
-mod mqtt;
 mod web;
-
-use authn::Authenticable;
-use mqtt::compat;
 
 fn main() -> Result<(), Error> {
     env_logger::init();
@@ -28,24 +28,24 @@ fn main() -> Result<(), Error> {
 
     let label = uuid::Uuid::new_v4().to_string();
 
-    let agent_id = authn::AgentId::new(&label, config.id.clone());
+    let agent_id = AgentId::new(&label, config.id.clone());
     info!("Agent Id: {}", agent_id);
-    let (mut agent, messages) = mqtt::AgentBuilder::new(agent_id)
-        .mode(mqtt::ConnectionMode::Bridge)
+    let (mut agent, messages) = AgentBuilder::new(agent_id)
+        .mode(ConnectionMode::Bridge)
         .start(&config.mqtt)?;
 
     let messages = wrap_async(messages);
 
-    let src = mqtt::Source::Unicast(None);
-    let sub = mqtt::ResponseSubscription::new(src);
+    let src = Source::Unicast(None);
+    let sub = ResponseSubscription::new(src);
     agent.subscribe(&sub, rumqtt::QoS::AtLeastOnce, None)?;
 
     // Subscribe for all configured events
     for (audience, audience_conf) in &config.events {
         for app in &audience_conf.sources {
             let uri = format!("audiences/{}", audience);
-            let src = mqtt::Source::Broadcast(&app, &uri);
-            let sub = mqtt::EventSubscription::new(src);
+            let src = Source::Broadcast(app, &uri);
+            let sub = EventSubscription::new(src);
             agent.subscribe(&sub, rumqtt::QoS::AtLeastOnce, None)?;
         }
     }

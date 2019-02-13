@@ -1,7 +1,19 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use jsonwebtoken::Algorithm;
 use serde::de::{Deserializer, Error, Unexpected, Visitor};
+
+pub type ConfigMap = HashMap<String, Config>;
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Config {
+    audience: String,
+    #[serde(deserialize_with = "algorithm")]
+    algorithm: Algorithm,
+    #[serde(deserialize_with = "file")]
+    key: Vec<u8>,
+}
 
 struct AlgorithmVisitor;
 
