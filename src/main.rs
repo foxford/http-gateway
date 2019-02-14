@@ -144,7 +144,7 @@ fn handle_message(
             let audience = extract_audience(&notif.topic_name)?;
 
             if let Some(audience_config) = config.events.get(audience) {
-                let account_id = event.properties().account_id();
+                let account_id = event.properties().as_account_id();
 
                 if audience_config.sources.contains(&account_id) {
                     event_sender.unbounded_send(event::Event::new(

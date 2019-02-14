@@ -28,9 +28,5 @@ tokio = "0.1"
 reqwest = "0.9"
 rumqtt = { version = "0.30" }
 
-svc-authn = { version = "0.1", features = ["jose", "tower-web"] }
-svc-agent = "0.1"
-
-[patch.crates-io]
-svc-agent = { git = "https://github.com/netology-group/svc-agent-rs.git", branch = "improve-publish-trait" }
-svc-authn = { git = "https://github.com/netology-group/svc-authn-rs.git", branch = "add-missing-features" }
+svc-authn = { version = "0.2", features = ["jose", "tower-web"] }
+svc-agent = { version = "0.2" }

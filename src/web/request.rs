@@ -9,9 +9,10 @@ use svc_authn::AccountId;
 use tower_web::{impl_web, Extract};
 
 use svc_agent::mqtt::{
-    Agent, IncomingResponse, OutgoingRequest, OutgoingRequestProperties, SubscriptionTopic, compat::IntoEnvelope
+    compat::IntoEnvelope, Agent, IncomingResponse, OutgoingRequest, OutgoingRequestProperties,
+    SubscriptionTopic,
 };
-use svc_agent::{AgentId, Destination, ResponseSubscription, Source};
+use svc_agent::{AgentId, ResponseSubscription, Source};
 
 pub struct InFlightRequests {
     map: HashMap<uuid::Uuid, oneshot::Sender<IncomingResponse<serde_json::Value>>>,
@@ -85,9 +86,14 @@ impl RequestResource {
         let response_topic = sub.subscription_topic(agent.id())?;
 
         let correlation_data = uuid::Uuid::new_v4();
-        let props = OutgoingRequestProperties::new(req.method, response_topic, Some(me.into()), correlation_data.to_string());
+        let mut props = OutgoingRequestProperties::new(
+            &req.method,
+            &response_topic,
+            &correlation_data.to_string(),
+        );
+        props.set_authn(me.into());
 
-        let out = OutgoingRequest::new(req.payload, props, Destination::Multicast(destination));
+        let out = OutgoingRequest::multicast(req.payload, props, &destination);
         agent.publish(&out.into_envelope()?)?;
 
         Ok(in_flight_requests.save_request(correlation_data))
