@@ -13,17 +13,17 @@ jobs:
       name: Tests
       script: cargo test
     - stage: check
-      name : Rustfmt
+      name: Rustfmt
       install: rustup component add rustfmt-preview
       script: cargo fmt -- --check
     - stage: check
       name: Clippy
       install: rustup component add clippy-preview
       script: cargo clippy
-    # - stage: check
-    #   name: Docs
-    #   install: cargo install mdbook --vers 0.2.2 --force
-    #   script: mdbook build docs && deploy/docs.sh
+    - stage: check
+      name: Docs
+      install: cargo install mdbook --vers 0.2.2 --force
+      script: mdbook build docs && deploy/docs.sh
     - stage: deploy
       name: Kubernetes
       script: deploy/run.sh
