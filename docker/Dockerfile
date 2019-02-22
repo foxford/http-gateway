@@ -1,13 +1,18 @@
-FROM rust:latest AS builder
+## -----------------------------------------------------------------------------
+## Build
+## -----------------------------------------------------------------------------
+FROM clux/muslrust as build-stage
 
-WORKDIR /usr/src/http-gateway
-
+WORKDIR "/build"
 COPY . .
 RUN cargo build --release
 
-FROM debian:stretch
+## -----------------------------------------------------------------------------
+## Package
+## -----------------------------------------------------------------------------
+FROM alpine
 
-COPY --from=builder /usr/src/http-gateway/target/release/http-gateway /app/
+COPY --from=build-stage "/build/target/x86_64-unknown-linux-musl/release/http-gateway" "/app/http-gateway"
 
 WORKDIR "/app"
-CMD ["/app/http-gateway"]
+ENTRYPOINT ["/app/http-gateway"]
