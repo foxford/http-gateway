@@ -1,11 +1,19 @@
-# http-gateway
+# HTTP Gateway
 
-[![Build Status](https://travis-ci.org/netology-group/http-gateway.svg?branch=master)](https://travis-ci.org/netology-group/http-gateway)
+[![Build Status][travis-img]][travis]  
+[Documentation][docs]
 
-[Documentation](http://http-gateway.docs.netology-group.services)
+An HTTP facade for [MQTT Gateway][mqtt-gateway-github].
 
-# Running tests
-```
-docker run -it -p 1883:1883 -p 9001:9001 eclipse-mosquitto
-cargo test
-```
+
+
+
+## License
+
+The source code is provided under the terms of [the MIT license][license].
+
+[mqtt-gateway-github]:https://github.com/netology-group/mqtt-gateway
+[docs]:https://docs.netology-group.services/http-gateway/index.html
+[license]:http://www.opensource.org/licenses/MIT
+[travis]:https://travis-ci.com/netology-group/http-gateway?branch=master
+[travis-img]:https://travis-ci.com/netology-group/http-gateway.png?branch=master
