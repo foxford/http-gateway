@@ -5,14 +5,13 @@ use failure::Error;
 use futures::{future, sync::oneshot, Future, IntoFuture};
 use futures_locks::{Mutex, MutexFut};
 use serde_derive::Deserialize;
-use svc_authn::AccountId;
-use tower_web::{impl_web, Extract};
-
 use svc_agent::mqtt::{
     compat::IntoEnvelope, Agent, IncomingResponse, OutgoingRequest, OutgoingRequestProperties,
     SubscriptionTopic,
 };
 use svc_agent::{AgentId, ResponseSubscription, Source};
+use svc_authn::AccountId;
+use tower_web::{impl_web, Extract};
 
 pub struct InFlightRequests {
     map: HashMap<uuid::Uuid, oneshot::Sender<IncomingResponse<serde_json::Value>>>,
@@ -64,7 +63,7 @@ impl RequestResource {
 struct RequestData {
     me: String,
     destination: String,
-    payload: String,
+    payload: serde_json::Value,
     method: String,
 }
 
