@@ -7,7 +7,7 @@ listen_addr = "127.0.0.1:8000"
 request_timeout = 5
 
 [authn."iam.example.net"]
-audience = "example.net"
+audience = ["example.net"]
 algorithm = "HS256"
 key = "data/keys/iam.key.binary.sample"
 
