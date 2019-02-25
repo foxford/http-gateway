@@ -6,6 +6,10 @@ listen_addr = "127.0.0.1:8000"
 # in seconds
 request_timeout = 5
 
+[web.cors]
+allow_origins = "*"
+max_age = 86400
+
 [authn."iam.example.net"]
 audience = ["example.net"]
 algorithm = "HS256"
