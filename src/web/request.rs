@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use failure::Error;
+use failure::{format_err, Error};
 use futures::{future, sync::oneshot, Future, IntoFuture};
 use futures_locks::{Mutex, MutexFut};
 use serde_derive::Deserialize;
@@ -11,6 +11,7 @@ use svc_agent::mqtt::{
 };
 use svc_agent::{AgentId, ResponseSubscription, Source};
 use svc_authn::AccountId;
+use tokio::prelude::FutureExt;
 use tower_web::{impl_web, Extract};
 
 pub struct InFlightRequests {
@@ -48,13 +49,19 @@ impl InFlightRequests {
 pub struct RequestResource {
     pub agent: Mutex<Agent>,
     pub in_flight_requests: Mutex<InFlightRequests>,
+    request_timeout: u64,
 }
 
 impl RequestResource {
-    pub fn new(agent: Agent, in_flight_requests: Mutex<InFlightRequests>) -> Self {
+    pub fn new(
+        agent: Agent,
+        in_flight_requests: Mutex<InFlightRequests>,
+        config: &super::Config,
+    ) -> Self {
         Self {
             agent: Mutex::new(agent),
             in_flight_requests,
+            request_timeout: config.request_timeout,
         }
     }
 }
@@ -103,19 +110,24 @@ impl_web! {
     impl RequestResource {
         #[post("/api/v1/request")]
         fn request(&self, body: RequestData, _account_id: AccountId) -> impl Future<Item = serde_json::Value, Error = Error> {
-            self
+            let req = self
                 .lock()
                 .map_err(|_| failure::err_msg("Unexpected error during lock acqusition"))
                 .and_then(|(mut agent, mut in_flight_requests)| Self::request_sync(
                     body,
                     &mut agent,
                     &mut in_flight_requests
-                ).into_future()
-                .and_then(|f| f.map_err(Error::from))
-                .and_then(|response| {
-                    let payload = response.payload().clone();
-                    future::ok(payload)
-                }))
+                )
+                .into_future())
+                .timeout(std::time::Duration::from_secs(self.request_timeout))
+                .map_err(|err| format_err!("{}", err));
+
+            req
+            .and_then(|f| f.map_err(Error::from))
+            .and_then(|response| {
+                let payload = response.payload().clone();
+                future::ok(payload)
+            })
         }
     }
 }

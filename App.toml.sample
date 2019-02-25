@@ -3,6 +3,8 @@ uri = "mqtt://192.168.99.100:1883"
 
 [web]
 listen_addr = "127.0.0.1:8000"
+# in seconds
+request_timeout = 5
 
 [authn."iam.example.net"]
 audience = "example.net"

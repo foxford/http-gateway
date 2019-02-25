@@ -7,4 +7,5 @@ pub use request::{InFlightRequests, RequestResource};
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub listen_addr: SocketAddr,
+    pub request_timeout: u64,
 }

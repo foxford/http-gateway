@@ -85,7 +85,7 @@ fn main() -> Result<(), Error> {
             })
     });
 
-    let request_resource = web::RequestResource::new(agent, in_flight_requests);
+    let request_resource = web::RequestResource::new(agent, in_flight_requests, &config.web);
 
     let tcp_stream = TcpListener::bind(&config.web.listen_addr)?;
 
