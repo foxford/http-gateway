@@ -5,6 +5,7 @@ use std::thread;
 
 use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, IntoFuture, Stream};
+use http::{header, Method};
 use log::{error, info};
 use rumqtt::Notification;
 use svc_agent::{
@@ -13,7 +14,7 @@ use svc_agent::{
 };
 use svc_authn::Authenticable;
 use tokio::net::TcpListener;
-use tower_web::{middleware::log::LogMiddleware, ServiceBuilder};
+use tower_web::{middleware::cors::CorsBuilder, middleware::log::LogMiddleware, ServiceBuilder};
 
 mod conf;
 mod event;
@@ -85,13 +86,26 @@ fn main() -> Result<(), Error> {
             })
     });
 
-    let request_resource = web::RequestResource::new(agent, in_flight_requests);
+    let request_resource = web::RequestResource::new(agent, in_flight_requests, &config.web);
 
     let tcp_stream = TcpListener::bind(&config.web.listen_addr)?;
+
+    let cors = CorsBuilder::new()
+        .allow_origins(config.web.cors.allow_origins.clone())
+        .allow_methods(vec![Method::POST])
+        .allow_headers(vec![
+            header::AUTHORIZATION,
+            header::CONTENT_LENGTH,
+            header::CONTENT_TYPE,
+        ])
+        .allow_credentials(true)
+        .max_age(config.web.cors.max_age)
+        .build();
 
     let server = ServiceBuilder::new()
         .config(config.authn.clone())
         .middleware(LogMiddleware::new("http_gateway::web"))
+        .middleware(cors)
         .resource(request_resource)
         .serve(tcp_stream.incoming());
 

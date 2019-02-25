@@ -1,6 +1,10 @@
 language: rust
 rust:
   - stable
+addons:
+  apt:
+    packages:
+      - lftp
 cache:
   cargo: true
 before_cache:
@@ -23,7 +27,7 @@ jobs:
     - stage: check
       name: Docs
       install: cargo install mdbook --vers 0.2.2 --force
-      script: mdbook build docs && deploy/docs.sh
+      script: mdbook build docs && bash deploy/docs.sh
     - stage: deploy
       name: Kubernetes
       script: deploy/run.sh

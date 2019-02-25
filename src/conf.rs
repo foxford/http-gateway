@@ -6,6 +6,7 @@ pub struct Config {
     pub authn: svc_authn::jose::ConfigMap,
     pub web: crate::web::Config,
     pub mqtt: svc_agent::mqtt::AgentConfig,
+    #[serde(default)]
     pub events: crate::event::ConfigMap,
 }
 

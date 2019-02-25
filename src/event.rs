@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use futures::{sync::mpsc, Future, Stream};
 use log::{error, info};
 use reqwest::r#async::Client;
-use svc_authn::AccountId;
 use svc_agent::mqtt::IncomingEvent;
+use svc_authn::AccountId;
 
 pub type ConfigMap = HashMap<String, Config>;
 
