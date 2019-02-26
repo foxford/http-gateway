@@ -10,7 +10,7 @@ use svc_agent::mqtt::{
     SubscriptionTopic,
 };
 use svc_agent::{AgentId, ResponseSubscription, Source};
-use svc_authn::AccountId;
+use svc_authn::{AccountId, Authenticable};
 use tokio::prelude::FutureExt;
 use tower_web::{impl_web, Extract};
 
@@ -80,11 +80,21 @@ impl RequestResource {
     }
 
     fn request_sync(
+        account_id: AccountId,
         req: RequestData,
         agent: &mut Agent,
         in_flight_requests: &mut InFlightRequests,
     ) -> Result<oneshot::Receiver<IncomingResponse<serde_json::Value>>, Error> {
         let me = AgentId::from_str(&req.me)?;
+
+        if me.as_account_id() != &account_id {
+            return Err(format_err!(
+                "Account Id = {} in token does not equal to Account Id in 'me' = {}",
+                account_id,
+                me.as_account_id()
+            ));
+        }
+
         let destination = AccountId::from_str(&req.destination)?;
 
         let src = Source::Unicast(Some(&destination));
@@ -109,11 +119,12 @@ impl RequestResource {
 impl_web! {
     impl RequestResource {
         #[post("/api/v1/request")]
-        fn request(&self, body: RequestData, _account_id: AccountId) -> impl Future<Item = serde_json::Value, Error = Error> {
+        fn request(&self, body: RequestData, account_id: AccountId) -> impl Future<Item = serde_json::Value, Error = Error> {
             let req = self
                 .lock()
                 .map_err(|_| failure::err_msg("Unexpected error during lock acqusition"))
                 .and_then(|(mut agent, mut in_flight_requests)| Self::request_sync(
+                    account_id,
                     body,
                     &mut agent,
                     &mut in_flight_requests
