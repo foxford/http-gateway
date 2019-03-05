@@ -30,6 +30,3 @@ rumqtt = { version = "0.30" }
 
 svc-authn = { version = "0.3", features = ["jose", "tower-web"] }
 svc-agent = { version = "0.3" }
-
-[patch.crates-io]
-svc-agent = { git = "https://github.com/netology-group/svc-agent-rs", branch = "allow-to-configure-clean-session" }
