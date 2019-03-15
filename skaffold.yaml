@@ -15,4 +15,8 @@ build:
 deploy:
   kubectl:
     manifests:
-      - k8s/*
+      - deploy/k8s/http-gateway.yaml
+      - deploy/k8s/http-gateway-config.yaml
+      - deploy/k8s/http-gateway-environment.yaml
+      - deploy/k8s/http-gateway-ingress.yaml
+      - deploy/k8s/http-gateway-service.yaml

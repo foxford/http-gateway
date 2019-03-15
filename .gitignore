@@ -1,8 +1,19 @@
+# OSX
 .DS_Store
-/target/
-**/*.rs.bk
+._*
+.Spotlight-V100
+.Trashes
 
-# App stuff
+# Vim
+.*.sw[a-z]
+*.un~
+Session.vim
+
+# Rust
+/target
+
+# Project
 App.toml
-k8s/
-docs/book
+/docs/book
+.idea
+deploy

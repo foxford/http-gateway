@@ -1,8 +1,4 @@
-id = "http-gateway.example.net"
-
-[mqtt]
-uri = "mqtt://192.168.99.100:1883"
-clean_session = false
+id = "http-gateway.svc.example.org"
 
 [web]
 listen_addr = "127.0.0.1:8000"
@@ -13,13 +9,17 @@ request_timeout = 5
 allow_origins = "*"
 max_age = 86400
 
-[authn."iam.example.net"]
-audience = ["example.net"]
-algorithm = "HS256"
-key = "data/keys/iam.key.binary.sample"
+[authn."iam.svc.example.net"]
+audience = ["usr.example.net"]
+algorithm = "ES256"
+key = "data/keys/iam.public_key.p8.der.sample"
 
-[events."iam.example.net"]
+[events."iam.svc.example.net"]
 callback = "http://localhost:8000/event"
 sources = [
   {label = "test-app", audience = "example.net"}
 ]
+
+[mqtt]
+uri = "mqtt://192.168.99.100:1883"
+clean_session = false

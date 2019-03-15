@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-gateway
+  labels:
+    app: http-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: http-gateway
+  template:
+    metadata:
+      labels:
+        app: http-gateway
+    spec:
+      containers:
+        - name: http-gateway
+          image: netologygroup/http-gateway
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          env:
+            - name: "RUST_LOG"
+              valueFrom:
+                configMapKeyRef:
+                  name: http-gateway-environment
+                  key: RUST_LOG
+          volumeMounts:
+            - name: config
+              mountPath: /app/App.toml
+              subPath: App.toml
+              readOnly: true
+            - name: iam
+              mountPath: /app/data/keys/iam.public_key.p8.der
+              subPath: iam.public_key
+            - name: svc
+              mountPath: /app/data/keys/svc.private_key.p8.der
+              subPath: svc.private_key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      volumes:
+        - name: config
+          configMap:
+            name: http-gateway-config
+        - name: iam
+          secret:
+            secretName: iam-pkcs8-der-credentials
+        - name: svc
+          secret:
+            secretName: svc-pkcs8-der-credentials

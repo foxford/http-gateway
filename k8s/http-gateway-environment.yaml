@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: http-gateway-environment
+  namespace: testing
+data:
+  RUST_LOG: "http_gateway=info"
