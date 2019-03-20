@@ -27,9 +27,7 @@ fn main() -> Result<(), Error> {
     let config = std::sync::Arc::new(config);
     info!("Config: {:?}", config);
 
-    let label = uuid::Uuid::new_v4().to_string();
-
-    let agent_id = AgentId::new(&label, config.id.clone());
+    let agent_id = AgentId::new(&config.agent_label, config.id.clone());
     info!("Agent Id: {}", agent_id);
     let (mut agent, messages) = AgentBuilder::new(agent_id)
         .mode(ConnectionMode::Bridge)
