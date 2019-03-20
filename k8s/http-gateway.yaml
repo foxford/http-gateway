@@ -1,14 +1,13 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: http-gateway
-  labels:
-    app: http-gateway
 spec:
-  replicas: 1
+  serviceName: http-gateway-headless
   selector:
     matchLabels:
       app: http-gateway
+  replicas: 1
   template:
     metadata:
       labels:
@@ -26,6 +25,10 @@ spec:
                 configMapKeyRef:
                   name: http-gateway-environment
                   key: RUST_LOG
+            - name: APP_AGENT_LABEL
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           volumeMounts:
             - name: config
               mountPath: /app/App.toml

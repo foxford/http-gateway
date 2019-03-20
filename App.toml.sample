@@ -1,4 +1,5 @@
 id = "http-gateway.svc.example.org"
+agent_label = "alpha"
 
 [web]
 listen_addr = "127.0.0.1:8000"

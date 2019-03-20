@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-gateway-headless
+spec:
+  selector:
+    app: http-gateway
+  clusterIP: None
