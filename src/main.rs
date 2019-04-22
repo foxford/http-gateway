@@ -7,10 +7,10 @@ use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, IntoFuture, Stream};
 use http::{header, Method};
 use log::{error, info};
-use rumqtt::Notification;
+use svc_agent::mqtt::{Notification, QoS};
 use svc_agent::{
     mqtt::{compat, AgentBuilder, ConnectionMode},
-    AgentId, EventSubscription, ResponseSubscription, Source,
+    AgentId, Subscription,
 };
 use svc_authn::Authenticable;
 use tokio::net::TcpListener;
@@ -35,17 +35,19 @@ fn main() -> Result<(), Error> {
 
     let messages = wrap_async(messages);
 
-    let src = Source::Unicast(None);
-    let sub = ResponseSubscription::new(src);
-    agent.subscribe(&sub, rumqtt::QoS::AtLeastOnce, None)?;
+    agent.subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)?;
 
     // Subscribe for all configured events
     for (audience, audience_conf) in &config.events {
-        for app in &audience_conf.sources {
-            let uri = format!("audiences/{}/events", audience);
-            let src = Source::Broadcast(app, &uri);
-            let sub = EventSubscription::new(src);
-            agent.subscribe(&sub, rumqtt::QoS::AtLeastOnce, None)?;
+        for from_account_id in &audience_conf.sources {
+            agent.subscribe(
+                &Subscription::broadcast_events(
+                    from_account_id,
+                    &format!("audiences/{}/events", audience),
+                ),
+                QoS::AtLeastOnce,
+                None,
+            )?;
         }
     }
 
