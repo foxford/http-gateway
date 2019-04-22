@@ -3,8 +3,7 @@ agent_label = "alpha"
 
 [web]
 listen_addr = "127.0.0.1:8000"
-# in seconds
-request_timeout = 5
+request_timeout = 5 # seconds
 
 [web.cors]
 allow_origins = "*"
@@ -15,11 +14,9 @@ audience = ["usr.example.net"]
 algorithm = "ES256"
 key = "data/keys/iam.public_key.p8.der.sample"
 
-[events."iam.svc.example.net"]
-callback = "http://localhost:8000/event"
-sources = [
-  {label = "test-app", audience = "example.net"}
-]
+[events."example.net"]
+callback = "https://example.net/callback"
+sources = ["event-source.svc.example.org"]
 
 [mqtt]
 uri = "mqtt://192.168.99.100:1883"
