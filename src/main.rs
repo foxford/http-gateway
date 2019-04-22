@@ -42,7 +42,7 @@ fn main() -> Result<(), Error> {
     // Subscribe for all configured events
     for (audience, audience_conf) in &config.events {
         for app in &audience_conf.sources {
-            let uri = format!("audiences/{}", audience);
+            let uri = format!("audiences/{}/events", audience);
             let src = Source::Broadcast(app, &uri);
             let sub = EventSubscription::new(src);
             agent.subscribe(&sub, rumqtt::QoS::AtLeastOnce, None)?;
