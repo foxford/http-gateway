@@ -7,6 +7,7 @@ use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, IntoFuture, Stream};
 use http::{header, Method};
 use log::{error, info};
+use std::sync::Arc;
 use svc_agent::mqtt::{Notification, QoS};
 use svc_agent::{
     mqtt::{compat, AgentBuilder, ConnectionMode},
@@ -15,6 +16,7 @@ use svc_agent::{
 use svc_authn::Authenticable;
 use tokio::net::TcpListener;
 use tower_web::{middleware::cors::CorsBuilder, middleware::log::LogMiddleware, ServiceBuilder};
+use uuid::Uuid;
 
 mod conf;
 mod event;
@@ -67,14 +69,19 @@ fn main() -> Result<(), Error> {
         in_flight_requests_copy
             .lock()
             .and_then(move |mut in_flight_requests| {
-                if let Notification::Publish(msg) = msg {
+                if let Notification::Publish(message) = msg {
                     info!(
                         "Incoming message: {}",
-                        String::from_utf8_lossy(&msg.payload)
+                        String::from_utf8_lossy(&message.payload)
                     );
 
-                    match handle_message(&mut in_flight_requests, msg, &config_copy, &event_sender)
-                    {
+                    match handle_message(
+                        &mut in_flight_requests,
+                        &message.topic_name,
+                        message.payload.clone(),
+                        &config_copy,
+                        &event_sender,
+                    ) {
                         Ok(..) => {}
                         Err(err) => {
                             error!("Error during notification handling: {}", err);
@@ -141,26 +148,28 @@ fn wrap_async(
 
 fn handle_message(
     in_flight_requests: &mut crate::web::InFlightRequests,
-    notif: rumqtt::Publish,
+    topic: &str,
+    payload: Arc<Vec<u8>>,
     config: &conf::Config,
     event_sender: &mpsc::UnboundedSender<event::Event>,
 ) -> Result<(), Error> {
-    let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(&notif.payload)?;
+    let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(payload.as_slice())?;
+
     match envelope.properties() {
-        compat::IncomingEnvelopeProperties::Response(..) => {
+        compat::IncomingEnvelopeProperties::Response(_) => {
             let response = compat::into_response(envelope)?;
-            let correlation_data = uuid::Uuid::parse_str(response.properties().correlation_data())?;
+            let correlation_data = Uuid::parse_str(response.properties().correlation_data())?;
             in_flight_requests.finish_request(correlation_data, response);
         }
-        compat::IncomingEnvelopeProperties::Event(..) => {
+        compat::IncomingEnvelopeProperties::Event(_) => {
             let event = compat::into_event::<serde_json::Value>(envelope)?;
-
-            let audience = extract_audience(&notif.topic_name)?;
+            let audience = extract_audience(topic)?;
 
             if let Some(audience_config) = config.events.get(audience) {
-                let account_id = event.properties().as_account_id();
-
-                if audience_config.sources.contains(&account_id) {
+                if audience_config
+                    .sources
+                    .contains(event.properties().as_account_id())
+                {
                     event_sender.unbounded_send(event::Event::new(
                         event,
                         audience_config.callback.to_owned(),

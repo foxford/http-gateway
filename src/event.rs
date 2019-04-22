@@ -31,32 +31,35 @@ pub fn event_handler() -> (
     impl Stream<Item = (), Error = ()>,
 ) {
     let (sender, receiver) = mpsc::unbounded();
-
     let client = Client::new();
 
     let receiver = receiver.and_then(move |event: Event| {
-        client.post(&event.uri).send().then(move |res| {
-            match res {
-                Ok(ref res) if res.status().is_success() => {
-                    info!("Event sent successfully. Event: {:?}", event);
-                }
-                Ok(res) => {
-                    error!(
-                        "Event sent with {} status code. Event: {:?}",
-                        res.status(),
-                        event
-                    );
-                }
+        client
+            .post(&event.uri)
+            .json(event.event.payload())
+            .send()
+            .then(move |res| {
+                match res {
+                    Ok(ref res) if res.status().is_success() => {
+                        info!("Event sent successfully. Event: {:?}", event);
+                    }
+                    Ok(res) => {
+                        error!(
+                            "Event sent with {} status code. Event: {:?}",
+                            res.status(),
+                            event
+                        );
+                    }
 
-                Err(err) => {
-                    error!(
-                        "Error during tenant notification: {}. Event: {:?}",
-                        err, event
-                    );
+                    Err(err) => {
+                        error!(
+                            "Error during tenant notification: {}. Event: {:?}",
+                            err, event
+                        );
+                    }
                 }
-            }
-            Ok(())
-        })
+                Ok(())
+            })
     });
 
     (sender, receiver)
