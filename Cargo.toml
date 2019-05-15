@@ -26,7 +26,6 @@ tower-web = "0.3"
 tower-service = "0.1"
 tokio = "0.1"
 reqwest = "0.9"
-rumqtt = { version = "0.30" }
 
 svc-authn = { version = "0.4", features = ["jose", "tower-web"] }
 svc-agent = { version = "0.5" }
