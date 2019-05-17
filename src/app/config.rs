@@ -5,10 +5,11 @@ pub(crate) struct Config {
     pub(crate) id: svc_authn::AccountId,
     pub(crate) agent_label: String,
     pub(crate) authn: svc_authn::jose::ConfigMap,
-    pub(crate) web: crate::web::Config,
     pub(crate) mqtt: svc_agent::mqtt::AgentConfig,
+    pub(crate) http: crate::app::HttpConfig,
+    pub(crate) http_client: crate::util::http_stream::Config,
     #[serde(default)]
-    pub(crate) events: crate::event::ConfigMap,
+    pub(crate) events: crate::app::endpoint::event::ConfigMap,
 }
 
 pub(crate) fn load() -> Result<Config, config::ConfigError> {

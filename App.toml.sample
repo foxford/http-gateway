@@ -1,14 +1,6 @@
 id = "http-gateway.svc.example.org"
 agent_label = "alpha"
 
-[web]
-listen_addr = "127.0.0.1:8000"
-request_timeout = 5 # seconds
-
-[web.cors]
-allow_origins = "*"
-max_age = 86400
-
 [authn."iam.svc.example.net"]
 audience = ["usr.example.net"]
 algorithm = "ES256"
@@ -21,3 +13,13 @@ sources = ["event-source.svc.example.org"]
 [mqtt]
 uri = "mqtt://192.168.99.100:1883"
 clean_session = false
+
+[http]
+listener_address = "0.0.0.0:8080"
+
+[http.cors]
+allow_origins = "*"
+max_age = 86400
+
+[http_client]
+timeout = 5 # seconds
