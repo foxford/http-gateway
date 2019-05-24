@@ -12,7 +12,9 @@ use svc_agent::mqtt::{
     compat, AgentBuilder, ConnectionMode, Notification, OutgoingRequest, OutgoingRequestProperties,
     QoS, SubscriptionTopic,
 };
-use svc_agent::{AccountId, AgentId, Authenticable, ResponseSubscription, Source, Subscription};
+use svc_agent::{
+    AccountId, AgentId, Authenticable, ResponseSubscription, SharedGroup, Source, Subscription,
+};
 use tokio::net::TcpListener;
 use tokio::prelude::FutureExt;
 use tower_web::{
@@ -134,6 +136,7 @@ pub(crate) fn run() {
     info!("Config: {:?}", config);
 
     let agent_id = AgentId::new(&config.agent_label, config.id.clone());
+    let group = SharedGroup::new("loadbalancer", agent_id.as_account_id().clone());
     info!("Agent Id: {}", agent_id);
     let (mut tx, rx) = AgentBuilder::new(agent_id)
         .mode(ConnectionMode::Bridge)
@@ -151,8 +154,12 @@ pub(crate) fn run() {
     });
 
     // Create Subscriptions
-    tx.subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)
-        .expect("Error subscribing to app's responses topic");
+    tx.subscribe(
+        &Subscription::unicast_responses(),
+        QoS::AtLeastOnce,
+        Some(&group),
+    )
+    .expect("Error subscribing to app's responses topic");
     for (tenant_audience, tenant_events_config) in &config.events {
         for from_account_id in tenant_events_config.sources() {
             tx.subscribe(
@@ -161,7 +168,7 @@ pub(crate) fn run() {
                     &format!("audiences/{}/events", tenant_audience),
                 ),
                 QoS::AtLeastOnce,
-                None,
+                Some(&group),
             )
             .expect("Error subscribing to app's events topic");
         }
