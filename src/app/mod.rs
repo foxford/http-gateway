@@ -71,7 +71,7 @@ impl_web! {
                     let response_topic = {
                         let src = Source::Unicast(Some(&body.destination));
                         let sub = ResponseSubscription::new(src);
-                        sub.subscription_topic(&body.me).map_err(|err| error().status(StatusCode::UNPROCESSABLE_ENTITY).detail(&err.to_string()).build())?
+                        sub.subscription_topic(tx.id()).map_err(|err| error().status(StatusCode::UNPROCESSABLE_ENTITY).detail(&err.to_string()).build())?
                     };
 
                     let correlation_data = Uuid::new_v4().to_string();

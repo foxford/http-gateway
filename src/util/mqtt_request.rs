@@ -3,6 +3,7 @@ use futures::sync::oneshot;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use svc_agent::mqtt::Agent;
+use svc_agent::AgentId;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -24,6 +25,10 @@ impl Adapter {
             tx,
             store: HashMap::new(),
         }
+    }
+
+    pub(crate) fn id(&self) -> &AgentId {
+        self.tx.id()
     }
 
     pub(crate) fn request(
