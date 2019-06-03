@@ -21,4 +21,4 @@ futures-locks = "0.3"
 tower-web = "0.3"
 
 svc-authn = { version = "0.4", features = ["jose", "tower-web"] }
-svc-agent = { version = "0.6" }
+svc-agent = { version = "0.7" }
