@@ -1,6 +1,10 @@
 id = "http-gateway.svc.example.org"
 agent_label = "alpha"
 
+[id_token]
+algorithm = "ES256"
+key = "data/keys/svc.private_key.p8.der.sample"
+
 [authn."iam.svc.example.net"]
 audience = ["usr.example.net"]
 algorithm = "ES256"

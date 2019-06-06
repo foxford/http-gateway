@@ -15,6 +15,7 @@ use svc_agent::mqtt::{
 use svc_agent::{
     AccountId, AgentId, Authenticable, ResponseSubscription, SharedGroup, Source, Subscription,
 };
+use svc_authn::{jose::Algorithm, token::jws_compact};
 use tokio::net::TcpListener;
 use tokio::prelude::FutureExt;
 use tower_web::{
@@ -37,7 +38,7 @@ struct RequestPayload {
 }
 
 //////////////////////////////////////////////////////////////////////////////////
-//
+
 struct Request {
     tx: Mutex<Adapter>,
     timeout: Duration,
@@ -105,6 +106,16 @@ impl_web! {
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Deserialize)]
+pub(crate) struct IdTokenConfig {
+    #[serde(deserialize_with = "svc_authn::serde::algorithm")]
+    algorithm: Algorithm,
+    #[serde(deserialize_with = "svc_authn::serde::file")]
+    key: Vec<u8>,
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Deserialize)]
 pub(crate) struct HttpConfig {
     listener_address: SocketAddr,
     cors: Cors,
@@ -135,12 +146,21 @@ pub(crate) fn run() {
     let config = config::load().expect("Failed to load config");
     info!("Config: {:?}", config);
 
+    // Agent
     let agent_id = AgentId::new(&config.agent_label, config.id.clone());
-    let group = SharedGroup::new("loadbalancer", agent_id.as_account_id().clone());
     info!("Agent Id: {}", agent_id);
+    let token = jws_compact::TokenBuilder::new()
+        .issuer(&agent_id.as_account_id().audience().to_string())
+        .subject(&agent_id)
+        .key(config.id_token.algorithm, config.id_token.key.as_slice())
+        .build()
+        .expect("Error creating an id token");
+    let mut agent_config = config.mqtt.clone();
+    agent_config.set_password(&token);
+    let group = SharedGroup::new("loadbalancer", agent_id.as_account_id().clone());
     let (mut tx, rx) = AgentBuilder::new(agent_id)
         .mode(ConnectionMode::Bridge)
-        .start(&config.mqtt)
+        .start(&agent_config)
         .expect("Failed to create an agent");
 
     // Event loop for incoming messages of MQTT Agent

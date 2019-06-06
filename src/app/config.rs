@@ -3,6 +3,7 @@ use config;
 #[derive(Debug, Deserialize)]
 pub(crate) struct Config {
     pub(crate) id: svc_authn::AccountId,
+    pub(crate) id_token: crate::app::IdTokenConfig,
     pub(crate) agent_label: String,
     pub(crate) authn: svc_authn::jose::ConfigMap,
     pub(crate) mqtt: svc_agent::mqtt::AgentConfig,
