@@ -552,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "http-gateway"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "config 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
