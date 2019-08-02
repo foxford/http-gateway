@@ -65,7 +65,7 @@ impl_web! {
                 .and_then(move |mut tx| {
                     let payload_account_id = body.me.as_account_id();
                     if &sub != payload_account_id {
-                        let detail = format!("account id = '{}' from the access token doesn't much one in payload = '{}' payload", &sub, payload_account_id);
+                        let detail = format!("account id = '{}' from the access token doesn't match one in payload.me = '{}' payload", &sub, payload_account_id);
                         return Err(error().status(StatusCode::FORBIDDEN).detail(&detail).build());
                     }
 
@@ -174,12 +174,8 @@ pub(crate) fn run() {
     });
 
     // Create Subscriptions
-    tx.subscribe(
-        &Subscription::unicast_responses(),
-        QoS::AtLeastOnce,
-        Some(&group),
-    )
-    .expect("Error subscribing to app's responses topic");
+    tx.subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)
+        .expect("Error subscribing to app's responses topic");
     for (tenant_audience, tenant_events_config) in &config.events {
         for from_account_id in tenant_events_config.sources() {
             tx.subscribe(
