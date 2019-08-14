@@ -1,6 +1,6 @@
 [package]
 name = "http-gateway"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Dmitry Shlagoff"]
 edition = "2018"
 
