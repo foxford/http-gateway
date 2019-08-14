@@ -565,7 +565,7 @@ dependencies = [
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "svc-agent 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "svc-agent 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "svc-authn 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-web 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1557,7 +1557,7 @@ dependencies = [
 
 [[package]]
 name = "svc-agent"
-version = "0.7.1"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2308,7 +2308,7 @@ dependencies = [
 "checksum spin 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "44363f6f51401c34e7be73db0db371c04705d35efbe9f7d6082e03a921a32c55"
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 "checksum string 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d0bbfb8937e38e34c3444ff00afb28b0811d9554f15c5ad64d12b0308d1d1995"
-"checksum svc-agent 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "11f77878a5c7d7331d2dfa0b3be2c624bb043ec0107fb1e4a4befde00aefb8e6"
+"checksum svc-agent 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bce3898db7a4583857a33a1023f6180f50fe9970ebf405e0407e875df0cadc92"
 "checksum svc-authn 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "155857a0822913ba103a75f043e2e8594e78d071fe4440b443870e7559681664"
 "checksum syn 0.11.11 (registry+https://github.com/rust-lang/crates.io-index)" = "d3b891b9015c88c576343b9b3e41c2c11a51c219ef067b264bd9c8aa9b441dad"
 "checksum syn 0.15.34 (registry+https://github.com/rust-lang/crates.io-index)" = "a1393e4a97a19c01e900df2aec855a29f71cf02c402e2f443b8d2747c25c5dbe"
