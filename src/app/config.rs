@@ -11,6 +11,7 @@ pub(crate) struct Config {
     pub(crate) http_client: crate::util::http_stream::Config,
     #[serde(default)]
     pub(crate) events: crate::app::endpoint::event::ConfigMap,
+    pub(crate) sentry: Option<svc_error::extension::sentry::Config>,
 }
 
 pub(crate) fn load() -> Result<Config, config::ConfigError> {

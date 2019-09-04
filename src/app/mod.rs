@@ -16,6 +16,7 @@ use svc_agent::{
     AccountId, AgentId, Authenticable, ResponseSubscription, SharedGroup, Source, Subscription,
 };
 use svc_authn::{jose::Algorithm, token::jws_compact};
+use svc_error::{extension::sentry, Error as SvcError};
 use tokio::net::TcpListener;
 use tokio::prelude::FutureExt;
 use tower_web::{
@@ -54,7 +55,7 @@ impl_web! {
     impl Request {
         #[post("/api/v1/request")]
         fn request(&self, body: RequestPayload, sub: AccountId) -> impl Future<Item = Result<JsonValue, tower_web::Error>, Error = ()> {
-            let error = || tower_web::Error::builder().kind("request_error", "Error sending a request");
+            let error = || SvcError::builder().kind("request_error", "Error sending a request");
             let timeout = self.timeout;
 
             self.tx.lock()
@@ -97,7 +98,20 @@ impl_web! {
                 })
                 .then(|result| match result {
                     Ok(resp) => Ok(Ok(resp.payload().clone())),
-                    Err(err) => Ok(Err(err))
+                    Err(err) => {
+                        notify_error(err.clone());
+
+                        let builder = tower_web::Error::builder()
+                            .status(err.status_code())
+                            .kind(err.kind(), err.title());
+
+                        let builder = match err.detail() {
+                            Some(detail) => builder.detail(detail),
+                            None => builder,
+                        };
+
+                        Ok(Err(builder.build()))
+                    }
                 })
         }
     }
@@ -145,6 +159,11 @@ pub(crate) fn run() {
     // Config
     let config = config::load().expect("Failed to load config");
     info!("Config: {:?}", config);
+
+    // Sentry
+    if let Some(sentry_config) = config.sentry.as_ref() {
+        sentry::init(sentry_config);
+    }
 
     // Agent
     let agent_id = AgentId::new(&config.agent_label, config.id.clone());
@@ -222,7 +241,14 @@ pub(crate) fn run() {
                             text = String::from_utf8_lossy(message.payload.as_slice()),
                             topic = topic,
                             detail = err,
-                        )
+                        );
+
+                        let err = SvcError::builder()
+                            .kind("message_processing_error", "Message processing error")
+                            .detail(&err.to_string())
+                            .build();
+
+                        notify_error(err);
                     }
                 }
                 Ok(())
@@ -282,6 +308,14 @@ fn handle_message(
             "unsupported message type, envelope = '{:?}'",
             envelope
         )),
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+fn notify_error(error: SvcError) {
+    if let Err(err) = sentry::send(error) {
+        error!("Error sending error to Sentry: {}", err);
     }
 }
 
