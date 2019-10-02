@@ -19,10 +19,6 @@ tokio = "0.1"
 futures = "0.1"
 futures-locks = "0.3"
 tower-web = "0.3"
-
 svc-authn = { version = "0.5", features = ["jose", "tower-web"] }
-svc-agent = { version = "0.7" }
+svc-agent = { version = "0.8" }
 svc-error = { version = "0.1", features = ["sentry-extension"] }
-
-[patch.crates-io]
-rumqtt = { git = "https://github.com/AtherEnergy/rumqtt.git", ref = "980e3d7d72344fc1b547a6b6834a7cba4112f93a" }

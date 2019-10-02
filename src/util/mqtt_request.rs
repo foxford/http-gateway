@@ -36,10 +36,7 @@ impl Adapter {
         req: OutgoingRequest,
     ) -> Result<oneshot::Receiver<IncomingResponse>, Error> {
         let id = req.properties().correlation_data().to_owned();
-
-        use svc_agent::mqtt::compat::IntoEnvelope;
-        let envelope = req.into_envelope()?;
-        self.tx.publish(&envelope)?;
+        self.tx.publish(Box::new(req))?;
 
         let (tx, rx) = oneshot::channel();
         self.store.insert(id, tx);
