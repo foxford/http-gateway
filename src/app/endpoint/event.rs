@@ -77,7 +77,6 @@ fn extract_audience(topic: &str) -> Result<&str, Error> {
 
     let events_literal = Some(Component::Normal(OsStr::new("events")));
     if topic.next_back() == events_literal {
-
     } else {
         return Err(format_err!(
             "topic does not match the pattern 'audiences/AUDIENCE/events': {}",

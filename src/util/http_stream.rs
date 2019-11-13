@@ -50,7 +50,7 @@ pub(crate) struct OutgoingStream {
 }
 
 impl OutgoingStream {
-    pub(crate) fn new(config: &Config) -> (Self, impl Future<Item = (), Error = ()>) {
+    pub(crate) fn new(config: &Config, token: String) -> (Self, impl Future<Item = (), Error = ()>) {
         let (tx, rx) = mpsc::unbounded::<OutgoingMessage>();
         let object = Self { tx };
 
@@ -58,7 +58,7 @@ impl OutgoingStream {
             .timeout(Duration::from_secs(config.timeout()))
             .build()
             .expect("Error creating HTTP client");
-        let ostream = rx.for_each(move |outev| Self::send_handler(&client, outev));
+        let ostream = rx.for_each(move |outev| Self::send_handler(&client, outev, token.clone()));
 
         (object, ostream)
     }
@@ -72,9 +72,11 @@ impl OutgoingStream {
     fn send_handler(
         client: &HttpClient,
         outev: OutgoingMessage,
+        token: String,
     ) -> impl Future<Item = (), Error = ()> {
         client
             .post(&outev.uri)
+            .bearer_auth(token)
             .json(&outev.payload)
             .send()
             .then(move |resp| {

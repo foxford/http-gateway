@@ -218,7 +218,7 @@ pub(crate) fn run() {
         event: endpoint::event::State::new(config.events),
     });
 
-    let (hq_tx, hq_rx) = OutgoingStream::new(&config.http_client);
+    let (hq_tx, hq_rx) = OutgoingStream::new(&config.http_client, token);
     let mq_rx = mq_rx.for_each(move |message| {
         let mut hq_tx = hq_tx.clone();
         let state = state.clone();
