@@ -1,11 +1,4 @@
-#[macro_use]
-extern crate tower_web;
-
 fn main() {
     env_logger::init();
-    app::run();
+    http_gateway::run("App.toml");
 }
-
-mod app;
-mod serde;
-mod util;

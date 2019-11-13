@@ -155,9 +155,9 @@ struct State {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub(crate) fn run() {
+pub(crate) fn run(config_filename: &str) {
     // Config
-    let config = config::load().expect("Failed to load config");
+    let config = config::load(config_filename).expect("Failed to load config");
     info!("Config: {:?}", config);
 
     // Sentry

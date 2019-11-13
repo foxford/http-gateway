@@ -14,9 +14,9 @@ pub(crate) struct Config {
     pub(crate) sentry: Option<svc_error::extension::sentry::Config>,
 }
 
-pub(crate) fn load() -> Result<Config, config::ConfigError> {
+pub(crate) fn load(filename: &str) -> Result<Config, config::ConfigError> {
     let mut parser = config::Config::default();
-    parser.merge(config::File::with_name("App"))?;
+    parser.merge(config::File::with_name(filename))?;
     parser.merge(config::Environment::with_prefix("APP").separator("__"))?;
     parser.try_into::<Config>()
 }

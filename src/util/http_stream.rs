@@ -50,7 +50,10 @@ pub(crate) struct OutgoingStream {
 }
 
 impl OutgoingStream {
-    pub(crate) fn new(config: &Config, token: String) -> (Self, impl Future<Item = (), Error = ()>) {
+    pub(crate) fn new(
+        config: &Config,
+        token: String,
+    ) -> (Self, impl Future<Item = (), Error = ()>) {
         let (tx, rx) = mpsc::unbounded::<OutgoingMessage>();
         let object = Self { tx };
 

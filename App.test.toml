@@ -1,0 +1,29 @@
+id = "http-gateway.svc.example.org"
+agent_label = "test"
+
+[id_token]
+algorithm = "ES256"
+key = "data/keys/svc.private_key.p8.der.sample"
+
+[authn."test.svc.example.org"]
+audience = ["test.example.org"]
+algorithm = "ES256"
+key = "data/keys/iam.public_key.p8.der.sample"
+
+[events."example.org"]
+callback = "http://0.0.0.0:31947/callback" # mock tenant endpoint
+sources = ["mock-service.test.svc.example.org"] # mock service account
+
+[mqtt]
+uri = "mqtt://0.0.0.0:1883"
+clean_session = false
+
+[http]
+listener_address = "0.0.0.0:31181"
+
+[http.cors]
+allow_origins = "*"
+max_age = 86400
+
+[http_client]
+timeout = 5 # seconds
