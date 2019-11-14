@@ -13,7 +13,7 @@ Session.vim
 /target
 
 # Project
-App.toml
+/App.toml
 /docs/book
 .idea
 deploy

@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate tower_web;
 
-pub fn run(config_filename: &str) {
-    app::run(config_filename);
+pub fn run() {
+    app::run();
 }
 
 mod app;

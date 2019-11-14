@@ -1,14 +1,17 @@
+# This is http-gateway config for integration tests.
+# Tests are hardcoded to work with settings from this file.
+
 id = "http-gateway.test.svc.example.org"
 agent_label = "alpha"
 
 [id_token]
 algorithm = "ES256"
-key = "data/keys/svc.private_key.p8.der.sample"
+key = "../data/keys/svc.private_key.p8.der.sample"
 
 [authn."iam.test.svc.example.org"]
 audience = ["test.svc.example.org"]
 algorithm = "ES256"
-key = "data/keys/iam.public_key.p8.der.sample"
+key = "../data/keys/iam.public_key.p8.der.sample"
 
 [events."example.org"]
 callback = "http://0.0.0.0:31947/callback" # mock tenant endpoint

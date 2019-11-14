@@ -108,9 +108,9 @@ impl ServiceMock {
 #[test]
 fn send_event() {
     // Service mock <-> HTTP-Gateway <-> Tenant mock
+    thread::spawn(http_gateway::run);
     let tenant_rx = TenantMock::run();
     let mut service = ServiceMock::new();
-    thread::spawn(move || http_gateway::run("App.test.toml"));
 
     // Broadcast message as mock service.
     service.broadcast_message("hello");

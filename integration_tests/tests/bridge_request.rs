@@ -79,10 +79,10 @@ const PING_REQUEST_BODY: &'static str = r#"
 "#;
 
 #[test]
-fn bridge_request() {
+fn bridge_requests() {
     // Client <-> HTTP-Gateway <-> PingService.
     let client = reqwest::Client::new();
-    thread::spawn(move || http_gateway::run("App.test.toml"));
+    thread::spawn(http_gateway::run);
     thread::spawn(run_ping_service);
     thread::sleep(std::time::Duration::from_secs(3));
 
@@ -114,7 +114,7 @@ fn bridge_request() {
 
 fn build_authz_token() -> String {
     let mut key_file =
-        File::open("data/keys/iam.private_key.p8.der.sample").expect("Failed to open key file");
+        File::open("../data/keys/iam.private_key.p8.der.sample").expect("Failed to open key file");
 
     let mut key = Vec::<u8>::new();
     key_file.read_to_end(&mut key).expect("Failed to read key");

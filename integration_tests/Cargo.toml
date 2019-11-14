@@ -1,0 +1,16 @@
+[package]
+name = "http-gateway-integration-tests"
+version = "0.2.2"
+authors = ["Timofey Martynov"]
+edition = "2018"
+
+[dev-dependencies]
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"
+http = "0.1"
+reqwest = "0.9"
+tower-web = "0.3"
+svc-authn = { version = "0.5", features = ["jose", "tower-web"] }
+svc-agent = { version = "0.8" }
+http-gateway = { path = ".." }
