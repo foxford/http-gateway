@@ -57,7 +57,8 @@ impl_web! {
         #[content_type("application/json")]
         fn request(
             &self,
-            body: RequestPayload, sub: AccountId
+            body: RequestPayload,
+            sub: AccountId,
         ) -> impl Future<Item = Result<HttpResponse<String>, tower_web::Error>, Error = ()> {
             let error = || SvcError::builder().kind("request_error", "Error sending a request");
             let timeout = self.timeout;

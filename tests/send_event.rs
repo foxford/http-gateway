@@ -137,6 +137,6 @@ fn send_event() {
         parse_jws_compact::<String>(&token).expect(&format!("Failed to extract JWS: {}", token));
 
     assert_eq!(jws_data.claims.subject(), "http-gateway");
-    assert_eq!(jws_data.claims.audience(), "svc.example.org");
-    assert_eq!(jws_data.claims.issuer(), "svc.example.org");
+    assert_eq!(jws_data.claims.audience(), "test.svc.example.org");
+    assert_eq!(jws_data.claims.issuer(), "test.svc.example.org");
 }

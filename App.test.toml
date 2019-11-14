@@ -1,12 +1,12 @@
-id = "http-gateway.svc.example.org"
-agent_label = "test"
+id = "http-gateway.test.svc.example.org"
+agent_label = "alpha"
 
 [id_token]
 algorithm = "ES256"
 key = "data/keys/svc.private_key.p8.der.sample"
 
-[authn."test.svc.example.org"]
-audience = ["test.example.org"]
+[authn."iam.test.svc.example.org"]
+audience = ["test.svc.example.org"]
 algorithm = "ES256"
 key = "data/keys/iam.public_key.p8.der.sample"
 
