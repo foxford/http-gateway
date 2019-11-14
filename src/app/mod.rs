@@ -1,7 +1,7 @@
 use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, Stream};
 use futures_locks::Mutex;
-use http::{header, Method, StatusCode};
+use http::{header, Method, Response as HttpResponse, StatusCode};
 use log::{error, info};
 use serde_derive::Deserialize;
 use serde_json::Value as JsonValue;
@@ -54,7 +54,11 @@ impl Request {
 impl_web! {
     impl Request {
         #[post("/api/v1/request")]
-        fn request(&self, body: RequestPayload, sub: AccountId) -> impl Future<Item = Result<JsonValue, tower_web::Error>, Error = ()> {
+        #[content_type("application/json")]
+        fn request(
+            &self,
+            body: RequestPayload, sub: AccountId
+        ) -> impl Future<Item = Result<HttpResponse<String>, tower_web::Error>, Error = ()> {
             let error = || SvcError::builder().kind("request_error", "Error sending a request");
             let timeout = self.timeout;
 
@@ -73,7 +77,12 @@ impl_web! {
                     let response_topic = {
                         let src = Source::Unicast(Some(&body.destination));
                         let sub = ResponseSubscription::new(src);
-                        sub.subscription_topic(tx.id()).map_err(|err| error().status(StatusCode::UNPROCESSABLE_ENTITY).detail(&err.to_string()).build())?
+
+                        sub.subscription_topic(tx.id()).map_err(|err| {
+                            error()
+                                .status(StatusCode::UNPROCESSABLE_ENTITY)
+                                .detail(&err.to_string()).build()
+                        })?
                     };
 
                     let correlation_data = Uuid::new_v4().to_string();
@@ -86,7 +95,12 @@ impl_web! {
                     let req = OutgoingRequest::multicast(body.payload, props, &body.destination);
 
                     // Send request
-                    tx.request(req).map_err(|err| error().status(StatusCode::UNPROCESSABLE_ENTITY).detail(&err.to_string()).build())
+                    tx.request(req).map_err(|err| {
+                        error()
+                            .status(StatusCode::UNPROCESSABLE_ENTITY)
+                            .detail(&err.to_string())
+                            .build()
+                    })
                 })
                 .and_then(move |req| {
                     req
@@ -97,7 +111,16 @@ impl_web! {
                         })
                 })
                 .then(|result| match result {
-                    Ok(resp) => Ok(Ok(resp.payload().clone())),
+                    Ok(resp) => Ok(HttpResponse::builder()
+                        .status(resp.properties().status())
+                        .body(resp.payload().to_string())
+                        .map_err(|err| {
+                            tower_web::Error::builder()
+                                .status(StatusCode::UNPROCESSABLE_ENTITY)
+                                .kind("http_response_build_error", "Failed to build HTTP response")
+                                .detail(&err.to_string())
+                                .build()
+                        })),
                     Err(err) => {
                         notify_error(err.clone());
 
