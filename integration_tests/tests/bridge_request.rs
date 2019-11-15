@@ -2,12 +2,14 @@ use std::fs::File;
 use std::io::Read;
 use std::thread;
 
+use chrono::Utc;
 use http::StatusCode as HttpStatus;
 use reqwest::header::{self, HeaderMap, HeaderValue};
 use serde_json::{json, Value as JsonValue};
 use svc_agent::{
     mqtt::{
         compat, AgentBuilder, AgentConfig, ConnectionMode, Notification, OutgoingResponse, QoS,
+        ShortTermTimingProperties,
     },
     AccountId, AgentId, SharedGroup, Subscription,
 };
@@ -50,9 +52,14 @@ fn run_ping_service() {
                 assert_eq!(request.properties().method(), "ping");
                 assert_eq!(request.payload()["message"].as_str(), Some("ping"));
 
+                let props = request.properties().to_response(
+                    HttpStatus::CREATED,
+                    ShortTermTimingProperties::new(Utc::now()),
+                );
+
                 let response = OutgoingResponse::unicast(
                     json!({"message": "pong"}),
-                    request.properties().to_response(HttpStatus::CREATED),
+                    props,
                     request.properties(),
                 );
 

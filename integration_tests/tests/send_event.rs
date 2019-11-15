@@ -5,10 +5,12 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use chrono::Utc;
 use serde_derive::{Deserialize, Serialize};
 use svc_agent::{
     mqtt::{
         Agent, AgentBuilder, AgentConfig, ConnectionMode, OutgoingEvent, OutgoingEventProperties,
+        ShortTermTimingProperties,
     },
     AccountId, AgentId,
 };
@@ -94,7 +96,8 @@ impl ServiceMock {
 
     fn broadcast_message(&mut self, message: &str) {
         let payload = EventPayload::new(message);
-        let props = OutgoingEventProperties::new("message");
+        let timing = ShortTermTimingProperties::new(Utc::now());
+        let props = OutgoingEventProperties::new("message", timing);
         let event = OutgoingEvent::broadcast(payload, props, "audiences/example.org/events");
 
         self.agent
@@ -137,6 +140,9 @@ fn send_event() {
         parse_jws_compact::<String>(&token).expect(&format!("Failed to extract JWS: {}", token));
 
     assert_eq!(jws_data.claims.subject(), "http-gateway");
-    assert_eq!(jws_data.claims.audience(), "test.svc.example.org:example.org");
+    assert_eq!(
+        jws_data.claims.audience(),
+        "test.svc.example.org:example.org"
+    );
     assert_eq!(jws_data.claims.issuer(), "test.svc.example.org");
 }

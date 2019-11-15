@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use std::{sync::Arc, thread};
 
+use chrono::Utc;
 use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, Stream};
 use futures_locks::Mutex;
@@ -15,7 +16,8 @@ use svc_agent::mqtt::{
     QoS, SubscriptionTopic,
 };
 use svc_agent::{
-    AccountId, AgentId, Authenticable, ResponseSubscription, SharedGroup, Source, Subscription,
+    mqtt::ShortTermTimingProperties, AccountId, AgentId, Authenticable, ResponseSubscription,
+    SharedGroup, Source, Subscription,
 };
 use svc_authn::{jose::Algorithm, token::jws_compact};
 use svc_error::{extension::sentry, Error as SvcError};
@@ -88,11 +90,11 @@ impl_web! {
                         })?
                     };
 
-                    let correlation_data = Uuid::new_v4().to_string();
                     let mut props = OutgoingRequestProperties::new(
                         &body.method,
                         &response_topic,
-                        &correlation_data,
+                        &Uuid::new_v4().to_string(),
+                        ShortTermTimingProperties::new(Utc::now()),
                     );
                     props.set_authn(body.me.into());
                     let req = OutgoingRequest::multicast(body.payload, props, &body.destination);
