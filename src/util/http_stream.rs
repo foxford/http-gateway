@@ -1,8 +1,9 @@
+use std::time::Duration;
+
 use failure::{err_msg, Error};
 use futures::{sync::mpsc, Future, Stream};
 use log::{error, info};
 use serde_json::Value as JsonValue;
-use std::time::Duration;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -31,13 +32,15 @@ type HttpClient = reqwest::r#async::Client;
 pub(crate) struct OutgoingMessage {
     payload: JsonValue,
     uri: String,
+    token: String,
 }
 
 impl OutgoingMessage {
-    pub(crate) fn new(payload: JsonValue, uri: &str) -> Self {
+    pub(crate) fn new(payload: JsonValue, uri: &str, token: &str) -> Self {
         Self {
             payload,
             uri: uri.to_owned(),
+            token: token.to_owned(),
         }
     }
 }
@@ -50,10 +53,7 @@ pub(crate) struct OutgoingStream {
 }
 
 impl OutgoingStream {
-    pub(crate) fn new(
-        config: &Config,
-        token: String,
-    ) -> (Self, impl Future<Item = (), Error = ()>) {
+    pub(crate) fn new(config: &Config) -> (Self, impl Future<Item = (), Error = ()>) {
         let (tx, rx) = mpsc::unbounded::<OutgoingMessage>();
         let object = Self { tx };
 
@@ -61,8 +61,8 @@ impl OutgoingStream {
             .timeout(Duration::from_secs(config.timeout()))
             .build()
             .expect("Error creating HTTP client");
-        let ostream = rx.for_each(move |outev| Self::send_handler(&client, outev, token.clone()));
 
+        let ostream = rx.for_each(move |outev| Self::send_handler(&client, outev));
         (object, ostream)
     }
 
@@ -75,11 +75,10 @@ impl OutgoingStream {
     fn send_handler(
         client: &HttpClient,
         outev: OutgoingMessage,
-        token: String,
     ) -> impl Future<Item = (), Error = ()> {
         client
             .post(&outev.uri)
-            .bearer_auth(token)
+            .bearer_auth(outev.token.to_owned())
             .json(&outev.payload)
             .send()
             .then(move |resp| {

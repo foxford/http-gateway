@@ -1,3 +1,8 @@
+use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::time::Duration;
+use std::{sync::Arc, thread};
+
 use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, Stream};
 use futures_locks::Mutex;
@@ -5,9 +10,6 @@ use http::{header, Method, Response as HttpResponse, StatusCode};
 use log::{error, info};
 use serde_derive::Deserialize;
 use serde_json::Value as JsonValue;
-use std::net::SocketAddr;
-use std::time::Duration;
-use std::{sync::Arc, thread};
 use svc_agent::mqtt::{
     compat, AgentBuilder, ConnectionMode, Notification, OutgoingRequest, OutgoingRequestProperties,
     QoS, SubscriptionTopic,
@@ -237,12 +239,32 @@ pub(crate) fn run() {
     let req_tx = Mutex::new(Adapter::new(tx));
     let resp_tx = req_tx.clone();
 
+    // Generate bearer tokens for callback requests
+    let mut tokens = HashMap::new();
+    for audience in config.events.keys() {
+        // Unique subject audience for each tenant to generate unique tokens
+        let subject_audience = format!("{}:{}", config.id.audience(), audience);
+        let subject = AccountId::new(config.id.label(), &subject_audience);
+
+        let token = jws_compact::TokenBuilder::new()
+            .issuer(&config.id.audience().to_owned())
+            .subject(&subject)
+            .key(config.id_token.algorithm, config.id_token.key.as_slice())
+            .build()
+            .expect(&format!(
+                "Error creating an id token for audience = '{}'",
+                audience
+            ));
+
+        tokens.insert(audience.to_owned(), token);
+    }
+
     // Application resources
     let state = Arc::new(State {
-        event: endpoint::event::State::new(config.events),
+        event: endpoint::event::State::new(config.events, tokens),
     });
 
-    let (hq_tx, hq_rx) = OutgoingStream::new(&config.http_client, token);
+    let (hq_tx, hq_rx) = OutgoingStream::new(&config.http_client);
     let mq_rx = mq_rx.for_each(move |message| {
         let mut hq_tx = hq_tx.clone();
         let state = state.clone();
