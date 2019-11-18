@@ -1,19 +1,23 @@
-use failure::{format_err, Error};
-use futures::{sync::mpsc, Future, Stream};
-use futures_locks::Mutex;
-use http::{header, Method, StatusCode};
-use log::{error, info};
-use serde_derive::Deserialize;
-use serde_json::Value as JsonValue;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::{sync::Arc, thread};
+
+use chrono::Utc;
+use failure::{format_err, Error};
+use futures::{sync::mpsc, Future, Stream};
+use futures_locks::Mutex;
+use http::{header, Method, Response as HttpResponse, StatusCode};
+use log::{error, info};
+use serde_derive::Deserialize;
+use serde_json::Value as JsonValue;
 use svc_agent::mqtt::{
     compat, AgentBuilder, ConnectionMode, Notification, OutgoingRequest, OutgoingRequestProperties,
     QoS, SubscriptionTopic,
 };
 use svc_agent::{
-    AccountId, AgentId, Authenticable, ResponseSubscription, SharedGroup, Source, Subscription,
+    mqtt::ShortTermTimingProperties, AccountId, AgentId, Authenticable, ResponseSubscription,
+    SharedGroup, Source, Subscription,
 };
 use svc_authn::{jose::Algorithm, token::jws_compact};
 use svc_error::{extension::sentry, Error as SvcError};
@@ -54,7 +58,12 @@ impl Request {
 impl_web! {
     impl Request {
         #[post("/api/v1/request")]
-        fn request(&self, body: RequestPayload, sub: AccountId) -> impl Future<Item = Result<JsonValue, tower_web::Error>, Error = ()> {
+        #[content_type("application/json")]
+        fn request(
+            &self,
+            body: RequestPayload,
+            sub: AccountId,
+        ) -> impl Future<Item = Result<HttpResponse<String>, tower_web::Error>, Error = ()> {
             let error = || SvcError::builder().kind("request_error", "Error sending a request");
             let timeout = self.timeout;
 
@@ -73,20 +82,30 @@ impl_web! {
                     let response_topic = {
                         let src = Source::Unicast(Some(&body.destination));
                         let sub = ResponseSubscription::new(src);
-                        sub.subscription_topic(tx.id()).map_err(|err| error().status(StatusCode::UNPROCESSABLE_ENTITY).detail(&err.to_string()).build())?
+
+                        sub.subscription_topic(tx.id()).map_err(|err| {
+                            error()
+                                .status(StatusCode::UNPROCESSABLE_ENTITY)
+                                .detail(&err.to_string()).build()
+                        })?
                     };
 
-                    let correlation_data = Uuid::new_v4().to_string();
                     let mut props = OutgoingRequestProperties::new(
                         &body.method,
                         &response_topic,
-                        &correlation_data,
+                        &Uuid::new_v4().to_string(),
+                        ShortTermTimingProperties::new(Utc::now()),
                     );
                     props.set_authn(body.me.into());
                     let req = OutgoingRequest::multicast(body.payload, props, &body.destination);
 
                     // Send request
-                    tx.request(req).map_err(|err| error().status(StatusCode::UNPROCESSABLE_ENTITY).detail(&err.to_string()).build())
+                    tx.request(req).map_err(|err| {
+                        error()
+                            .status(StatusCode::UNPROCESSABLE_ENTITY)
+                            .detail(&err.to_string())
+                            .build()
+                    })
                 })
                 .and_then(move |req| {
                     req
@@ -97,7 +116,16 @@ impl_web! {
                         })
                 })
                 .then(|result| match result {
-                    Ok(resp) => Ok(Ok(resp.payload().clone())),
+                    Ok(resp) => Ok(HttpResponse::builder()
+                        .status(resp.properties().status())
+                        .body(resp.payload().to_string())
+                        .map_err(|err| {
+                            tower_web::Error::builder()
+                                .status(StatusCode::UNPROCESSABLE_ENTITY)
+                                .kind("http_response_build_error", "Failed to build HTTP response")
+                                .detail(&err.to_string())
+                                .build()
+                        })),
                     Err(err) => {
                         notify_error(err.clone());
 
@@ -213,9 +241,29 @@ pub(crate) fn run() {
     let req_tx = Mutex::new(Adapter::new(tx));
     let resp_tx = req_tx.clone();
 
+    // Generate bearer tokens for callback requests
+    let mut tokens = HashMap::new();
+    for audience in config.events.keys() {
+        // Unique subject audience for each tenant to generate unique tokens
+        let subject_audience = format!("{}:{}", config.id.audience(), audience);
+        let subject = AccountId::new(config.id.label(), &subject_audience);
+
+        let token = jws_compact::TokenBuilder::new()
+            .issuer(&config.id.audience().to_owned())
+            .subject(&subject)
+            .key(config.id_token.algorithm, config.id_token.key.as_slice())
+            .build()
+            .expect(&format!(
+                "Error creating an id token for audience = '{}'",
+                audience
+            ));
+
+        tokens.insert(audience.to_owned(), token);
+    }
+
     // Application resources
     let state = Arc::new(State {
-        event: endpoint::event::State::new(config.events),
+        event: endpoint::event::State::new(config.events, tokens),
     });
 
     let (hq_tx, hq_rx) = OutgoingStream::new(&config.http_client);

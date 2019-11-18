@@ -1,0 +1,32 @@
+# This is http-gateway config for integration tests.
+# Tests are hardcoded to work with settings from this file.
+
+id = "http-gateway.test.svc.example.org"
+agent_label = "alpha"
+
+[id_token]
+algorithm = "ES256"
+key = "../data/keys/svc.private_key.p8.der.sample"
+
+[authn."iam.test.svc.example.org"]
+audience = ["test.svc.example.org"]
+algorithm = "ES256"
+key = "../data/keys/iam.public_key.p8.der.sample"
+
+[events."example.org"]
+callback = "http://0.0.0.0:31947/callback" # mock tenant endpoint
+sources = ["mock-service.test.svc.example.org"] # mock service account
+
+[mqtt]
+uri = "mqtt://0.0.0.0:1883"
+clean_session = false
+
+[http]
+listener_address = "0.0.0.0:31181"
+
+[http.cors]
+allow_origins = "*"
+max_age = 86400
+
+[http_client]
+timeout = 5 # seconds

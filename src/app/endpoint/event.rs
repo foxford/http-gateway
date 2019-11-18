@@ -1,6 +1,7 @@
-use failure::{format_err, Error};
-use serde_json::Value as JsonValue;
 use std::collections::HashMap;
+
+use failure::{bail, format_err, Error};
+use serde_json::Value as JsonValue;
 use svc_agent::{AccountId, Authenticable};
 
 use crate::util::http_stream::OutgoingMessage;
@@ -33,11 +34,12 @@ type IncomingEvent = svc_agent::mqtt::IncomingEvent<JsonValue>;
 
 pub(crate) struct State {
     config: ConfigMap,
+    tokens: HashMap<String, String>,
 }
 
 impl State {
-    pub(crate) fn new(config: ConfigMap) -> Self {
-        Self { config }
+    pub(crate) fn new(config: ConfigMap, tokens: HashMap<String, String>) -> Self {
+        Self { config, tokens }
     }
 
     pub(crate) fn handle(
@@ -47,22 +49,32 @@ impl State {
     ) -> Result<OutgoingMessage, Error> {
         let from_account_id = inev.properties().as_account_id();
         let audience = extract_audience(topic)?;
+
         let config = self.config.get(audience).ok_or_else(|| {
             format_err!(
                 "sending events for audience = '{}' is not allowed",
                 audience
             )
         })?;
+
         if !config.sources().contains(from_account_id) {
-            return Err(format_err!(
+            bail!(
                 "sending events for audience = '{}' from application = '{}' is not allowed",
                 audience,
                 from_account_id
-            ));
+            );
         }
 
-        let outev = OutgoingMessage::new(inev.payload().clone(), config.callback());
-        Ok(outev)
+        let token = match self.tokens.get(audience) {
+            Some(value) => value,
+            None => bail!("missing token for audience = '{}'", audience),
+        };
+
+        Ok(OutgoingMessage::new(
+            inev.payload().clone(),
+            config.callback(),
+            token,
+        ))
     }
 }
 
@@ -77,7 +89,6 @@ fn extract_audience(topic: &str) -> Result<&str, Error> {
 
     let events_literal = Some(Component::Normal(OsStr::new("events")));
     if topic.next_back() == events_literal {
-
     } else {
         return Err(format_err!(
             "topic does not match the pattern 'audiences/AUDIENCE/events': {}",
