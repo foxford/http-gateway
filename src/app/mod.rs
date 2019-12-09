@@ -96,7 +96,7 @@ impl_web! {
                         &Uuid::new_v4().to_string(),
                         ShortTermTimingProperties::new(Utc::now()),
                     );
-                    props.set_authn(body.me.into());
+                    props.set_agent_id(body.me);
                     let req = OutgoingRequest::multicast(body.payload, props, &body.destination);
 
                     // Send request
