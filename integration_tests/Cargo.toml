@@ -15,3 +15,6 @@ tower-web = "0.3"
 svc-authn = { version = "0.5", features = ["jose", "tower-web"] }
 svc-agent = { version = "0.9" }
 http-gateway = { path = ".." }
+
+[patch.crates-io]
+svc-agent = { git = "https://github.com/netology-group/svc-agent-rs.git", branch = "feature/ULMS-711" }
