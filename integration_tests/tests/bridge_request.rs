@@ -15,13 +15,16 @@ use svc_agent::{
 };
 use svc_authn::{jose::Algorithm, token::jws_compact};
 
+const API_VERSION: &str = "v1";
+
 ///////////////////////////////////////////////////////////////////////////////
 
 fn run_ping_service() {
     // Create agent.
     let account_id = AccountId::new("ping-service", "test.svc.example.org");
     let agent_id = AgentId::new("test", account_id.clone());
-    let builder = AgentBuilder::new(agent_id).mode(ConnectionMode::Service);
+
+    let builder = AgentBuilder::new(agent_id, API_VERSION).connection_mode(ConnectionMode::Service);
 
     let config = serde_json::from_str::<AgentConfig>(r#"{"uri": "0.0.0.0:1883"}"#)
         .expect("Failed to parse agent config");
@@ -33,7 +36,7 @@ fn run_ping_service() {
     // Subscribe to multicast requests topic.
     agent
         .subscribe(
-            &Subscription::multicast_requests(),
+            &Subscription::multicast_requests(Some(API_VERSION)),
             QoS::AtLeastOnce,
             Some(&SharedGroup::new("loadbalancer", account_id)),
         )
@@ -61,6 +64,7 @@ fn run_ping_service() {
                     json!({"message": "pong"}),
                     props,
                     request.properties(),
+                    API_VERSION,
                 );
 
                 agent
@@ -105,7 +109,7 @@ fn bridge_requests() {
     );
 
     let mut resp = client
-        .post("http://0.0.0.0:31181/api/v1/request")
+        .post(&format!("http://0.0.0.0:31181/api/{}/request", API_VERSION))
         .headers(headers)
         .body(PING_REQUEST_BODY)
         .send()

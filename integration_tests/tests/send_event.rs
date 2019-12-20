@@ -17,6 +17,8 @@ use svc_agent::{
 use svc_authn::token::jws_compact::extract::parse_jws_compact;
 use tower_web::ServiceBuilder;
 
+const API_VERSION: &str = "v1";
+
 ///////////////////////////////////////////////////////////////////////////////
 
 struct IncomingRequest {
@@ -82,7 +84,9 @@ impl ServiceMock {
     fn new() -> Self {
         let account_id = AccountId::new("mock-service", "test.svc.example.org");
         let agent_id = AgentId::new("test", account_id);
-        let builder = AgentBuilder::new(agent_id).mode(ConnectionMode::Service);
+
+        let builder =
+            AgentBuilder::new(agent_id, API_VERSION).connection_mode(ConnectionMode::Service);
 
         let config = serde_json::from_str::<AgentConfig>(r#"{"uri": "0.0.0.0:1883"}"#)
             .expect("Failed to parse agent config");

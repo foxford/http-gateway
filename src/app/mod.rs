@@ -32,6 +32,8 @@ use uuid::Uuid;
 use crate::util::http_stream::OutgoingStream;
 use crate::util::mqtt_request::Adapter;
 
+const API_VERSION: &str = "v1";
+
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Extract, Deserialize)]
@@ -83,7 +85,7 @@ impl_web! {
                         let src = Source::Unicast(Some(&body.destination));
                         let sub = ResponseSubscription::new(src);
 
-                        sub.subscription_topic(tx.id()).map_err(|err| {
+                        sub.subscription_topic(tx.id(), API_VERSION).map_err(|err| {
                             error()
                                 .status(StatusCode::UNPROCESSABLE_ENTITY)
                                 .detail(&err.to_string()).build()
@@ -196,17 +198,20 @@ pub(crate) fn run() {
     // Agent
     let agent_id = AgentId::new(&config.agent_label, config.id.clone());
     info!("Agent Id: {}", agent_id);
+
     let token = jws_compact::TokenBuilder::new()
         .issuer(&agent_id.as_account_id().audience().to_string())
         .subject(&agent_id)
         .key(config.id_token.algorithm, config.id_token.key.as_slice())
         .build()
         .expect("Error creating an id token");
+
     let mut agent_config = config.mqtt.clone();
     agent_config.set_password(&token);
     let group = SharedGroup::new("loadbalancer", agent_id.as_account_id().clone());
-    let (mut tx, rx) = AgentBuilder::new(agent_id)
-        .mode(ConnectionMode::Bridge)
+
+    let (mut tx, rx) = AgentBuilder::new(agent_id, API_VERSION)
+        .connection_mode(ConnectionMode::Bridge)
         .start(&agent_config)
         .expect("Failed to create an agent");
 
@@ -228,6 +233,7 @@ pub(crate) fn run() {
             tx.subscribe(
                 &Subscription::broadcast_events(
                     from_account_id,
+                    API_VERSION,
                     &format!("audiences/{}/events", tenant_audience),
                 ),
                 QoS::AtLeastOnce,
