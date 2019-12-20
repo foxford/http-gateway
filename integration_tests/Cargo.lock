@@ -558,7 +558,7 @@ dependencies = [
 
 [[package]]
 name = "http-gateway"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "chrono 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "config 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -582,11 +582,11 @@ dependencies = [
 
 [[package]]
 name = "http-gateway-integration-tests"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "chrono 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)",
- "http-gateway 0.2.3",
+ "http-gateway 0.3.0",
  "reqwest 0.9.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
