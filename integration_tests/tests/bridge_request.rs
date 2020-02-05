@@ -121,6 +121,16 @@ fn bridge_requests() {
     // Assert payload.
     let payload = resp.json::<JsonValue>().expect("Failed to parse response");
     assert_eq!(payload["message"].as_str(), Some("pong"));
+
+    // Assert headers.
+    let status_header = resp
+        .headers()
+        .get("gateway-status")
+        .expect("Missing gateway-status response header")
+        .to_str()
+        .expect("Failed to cast gatewya-status response header value to string");
+
+    assert_eq!(status_header, "201")
 }
 
 fn build_authz_token() -> String {

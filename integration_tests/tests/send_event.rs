@@ -23,6 +23,7 @@ const API_VERSION: &str = "v1";
 
 struct IncomingRequest {
     authorization: String,
+    gateway_label: String,
     body: String,
 }
 
@@ -52,8 +53,13 @@ impl TenantMock {
 impl_web! {
     impl TenantMock {
         #[post("/callback")]
-        fn callback(&self, authorization: String, body: String) -> Result<&'static str, ()> {
-            let request = IncomingRequest { authorization, body };
+        fn callback(
+            &self,
+            authorization: String,
+            gateway_label: String,
+            body: String
+        ) -> Result<&'static str, ()> {
+            let request = IncomingRequest { authorization, gateway_label, body };
             let tx = self.tx.lock().expect("Failed to obtain sender lock");
             tx.send(request).expect("Failed to publish message to sender");
             Ok("OK")
@@ -143,10 +149,14 @@ fn send_event() {
     let jws_data =
         parse_jws_compact::<String>(&token).expect(&format!("Failed to extract JWS: {}", token));
 
+    assert_eq!(jws_data.claims.issuer(), "test.svc.example.org");
     assert_eq!(jws_data.claims.subject(), "http-gateway");
+
     assert_eq!(
         jws_data.claims.audience(),
         "test.svc.example.org:example.org"
     );
-    assert_eq!(jws_data.claims.issuer(), "test.svc.example.org");
+
+    // Assert Gateway-Label header.
+    assert_eq!(inreq.gateway_label, "message");
 }

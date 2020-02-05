@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::{sync::Arc, thread};
@@ -29,6 +30,7 @@ use tower_web::{
 };
 use uuid::Uuid;
 
+use crate::util::headers::Headers;
 use crate::util::http_stream::OutgoingStream;
 use crate::util::mqtt_request::Adapter;
 
@@ -127,7 +129,20 @@ impl_web! {
                                 .kind("http_response_build_error", "Failed to build HTTP response")
                                 .detail(&err.to_string())
                                 .build()
-                        })),
+                        })
+                        .and_then(|mut http_response| Headers::try_from(&resp)
+                            .map(|headers| {
+                                headers.add_to_header_map(http_response.headers_mut());
+                                http_response
+                            })
+                            .map_err(|err| {
+                                tower_web::Error::builder()
+                                    .status(StatusCode::UNPROCESSABLE_ENTITY)
+                                    .kind("http_response_headers_error", "Failed to set HTTP response headers")
+                                    .detail(&err.to_string())
+                                    .build()
+                            })
+                        )),
                     Err(err) => {
                         notify_error(err.clone());
 

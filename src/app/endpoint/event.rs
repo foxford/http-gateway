@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 use failure::{bail, format_err, Error};
 use serde_json::Value as JsonValue;
 use svc_agent::{AccountId, Authenticable};
 
+use crate::util::headers::Headers;
 use crate::util::http_stream::OutgoingMessage;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,6 +74,7 @@ impl State {
 
         Ok(OutgoingMessage::new(
             inev.payload().clone(),
+            Headers::try_from(inev)?,
             config.callback(),
             token,
         ))
