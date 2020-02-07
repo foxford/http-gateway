@@ -5,6 +5,8 @@ use futures::{sync::mpsc, Future, Stream};
 use log::{error, info};
 use serde_json::Value as JsonValue;
 
+use crate::util::headers::Headers;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 const DEFAULT_TIMEOUT: u64 = 5;
@@ -31,14 +33,16 @@ type HttpClient = reqwest::r#async::Client;
 #[derive(Debug)]
 pub(crate) struct OutgoingMessage {
     payload: JsonValue,
+    headers: Headers,
     uri: String,
     token: String,
 }
 
 impl OutgoingMessage {
-    pub(crate) fn new(payload: JsonValue, uri: &str, token: &str) -> Self {
+    pub(crate) fn new(payload: JsonValue, headers: Headers, uri: &str, token: &str) -> Self {
         Self {
             payload,
+            headers,
             uri: uri.to_owned(),
             token: token.to_owned(),
         }
@@ -79,6 +83,7 @@ impl OutgoingStream {
         client
             .post(&outev.uri)
             .bearer_auth(outev.token.to_owned())
+            .headers(outev.headers.to_header_map())
             .json(&outev.payload)
             .send()
             .then(move |resp| {
