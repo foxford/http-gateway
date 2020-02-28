@@ -24,5 +24,3 @@ svc-authn = { version = "0.5", features = ["jose", "tower-web"] }
 svc-agent = "0.11"
 svc-error = { version = "0.1", features = ["sentry-extension"] }
 
-[patch.crates-io]
-svc-agent = { git = "https://github.com/netology-group/svc-agent-rs", branch = "feature/ULMS-236" }
