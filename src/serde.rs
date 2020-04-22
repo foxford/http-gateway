@@ -1,3 +1,8 @@
+// FIXME: this is not right
+// http::header::value::HeaderValue has interior mutability
+// thus clippy fails when HeaderValue is used as key in BTreeSet
+#![allow(clippy::mutable_key_type)]
+
 use serde::de;
 use serde::de::{Deserializer, Error, SeqAccess, Unexpected, Visitor};
 use std::fmt;

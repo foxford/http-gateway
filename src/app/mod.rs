@@ -234,7 +234,7 @@ pub(crate) fn run() {
     let (mq_tx, mq_rx) = mpsc::unbounded::<Notification>();
     thread::spawn(move || {
         for message in rx {
-            if let Err(_) = mq_tx.unbounded_send(message) {
+            if mq_tx.unbounded_send(message).is_err() {
                 error!("Error sending message to the internal channel");
             }
         }
@@ -274,10 +274,7 @@ pub(crate) fn run() {
             .subject(&subject)
             .key(config.id_token.algorithm, config.id_token.key.as_slice())
             .build()
-            .expect(&format!(
-                "Error creating an id token for audience = '{}'",
-                audience
-            ));
+            .unwrap_or_else(|_| panic!("Error creating an id token for audience = '{}'", audience));
 
         tokens.insert(audience.to_owned(), token);
     }
