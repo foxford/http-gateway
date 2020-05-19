@@ -44,6 +44,10 @@ impl State {
         Self { config, tokens }
     }
 
+    pub(crate) fn config(&self) -> &ConfigMap {
+        &self.config
+    }
+
     pub(crate) fn handle(
         &self,
         topic: &str,

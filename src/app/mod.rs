@@ -9,7 +9,7 @@ use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, Stream};
 use futures_locks::Mutex;
 use http::{header, Method, Response as HttpResponse, StatusCode};
-use log::{error, info};
+use log::{error, info, warn};
 use serde_derive::Deserialize;
 use serde_json::Value as JsonValue;
 use svc_agent::mqtt::{
@@ -17,8 +17,8 @@ use svc_agent::mqtt::{
     QoS, SubscriptionTopic,
 };
 use svc_agent::{
-    mqtt::ShortTermTimingProperties, AccountId, AgentId, Authenticable, ResponseSubscription,
-    SharedGroup, Source, Subscription,
+    mqtt::{Agent, ShortTermTimingProperties},
+    AccountId, AgentId, Authenticable, ResponseSubscription, SharedGroup, Source, Subscription,
 };
 use svc_authn::{jose::Algorithm, token::jws_compact};
 use svc_error::{extension::sentry, Error as SvcError};
@@ -223,9 +223,8 @@ pub(crate) fn run() {
 
     let mut agent_config = config.mqtt.clone();
     agent_config.set_password(&token);
-    let group = SharedGroup::new("loadbalancer", agent_id.as_account_id().clone());
 
-    let (mut tx, rx) = AgentBuilder::new(agent_id, API_VERSION)
+    let (mut tx, rx) = AgentBuilder::new(agent_id.clone(), API_VERSION)
         .connection_mode(ConnectionMode::Bridge)
         .start(&agent_config)
         .expect("Failed to create an agent");
@@ -241,22 +240,8 @@ pub(crate) fn run() {
     });
 
     // Create Subscriptions
-    tx.subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)
-        .expect("Error subscribing to app's responses topic");
-    for (tenant_audience, tenant_events_config) in &config.events {
-        for from_account_id in tenant_events_config.sources() {
-            tx.subscribe(
-                &Subscription::broadcast_events(
-                    from_account_id,
-                    API_VERSION,
-                    &format!("audiences/{}/events", tenant_audience),
-                ),
-                QoS::AtLeastOnce,
-                Some(&group),
-            )
-            .expect("Error subscribing to app's events topic");
-        }
-    }
+    subscribe(&mut tx, &agent_id, &config.events).expect("Failed to subscribe");
+    let agent = tx.clone();
 
     // Create MQTT Request Adapter
     let req_tx = Mutex::new(Adapter::new(tx));
@@ -288,35 +273,59 @@ pub(crate) fn run() {
     let mq_rx = mq_rx.for_each(move |message| {
         let mut hq_tx = hq_tx.clone();
         let state = state.clone();
+        let mut agent = agent.clone();
+        let agent_id = agent_id.clone();
+
         resp_tx
             .lock()
             .and_then(move |mut resp_tx| {
-                if let Notification::Publish(message) = message {
-                    let topic: &str = &message.topic_name;
+                match message {
+                    Notification::Publish(message) => {
+                        let topic: &str = &message.topic_name;
 
-                    // Log incoming messages
-                    info!(
-                        "Incoming message = '{}' sent to the topic = '{}', dup = '{}', pkid = '{:?}'",
-                        String::from_utf8_lossy(message.payload.as_slice()), topic, message.dup, message.pkid,
-                    );
-
-                    let result = handle_message(&mut resp_tx, &mut hq_tx, topic, message.payload.clone(), state.clone());
-                    if let Err(err) = result {
-                        error!(
-                            "Error processing a message = '{text}' sent to the topic = '{topic}', {detail}",
-                            text = String::from_utf8_lossy(message.payload.as_slice()),
-                            topic = topic,
-                            detail = err,
+                        // Log incoming messages
+                        info!(
+                            "Incoming message = '{}' sent to the topic = '{}', dup = '{}', pkid = '{:?}'",
+                            String::from_utf8_lossy(message.payload.as_slice()),
+                            topic,
+                            message.dup,
+                            message.pkid,
                         );
 
-                        let err = SvcError::builder()
-                            .kind("message_processing_error", "Message processing error")
-                            .detail(&err.to_string())
-                            .build();
+                        let result = handle_message(
+                            &mut resp_tx,
+                            &mut hq_tx,
+                            topic,
+                            message.payload.clone(),
+                            state.clone(),
+                        );
 
-                        notify_error(err);
+                        if let Err(err) = result {
+                            error!(
+                                "Error processing a message = '{text}' sent to the topic = '{topic}', {detail}",
+                                text = String::from_utf8_lossy(message.payload.as_slice()),
+                                topic = topic,
+                                detail = err,
+                            );
+
+                            let err = SvcError::builder()
+                                .kind("message_processing_error", "Message processing error")
+                                .detail(&err.to_string())
+                                .build();
+
+                            notify_error(err);
+                        }
                     }
+                    Notification::Disconnection => {
+                        error!("Disconnected from broker");
+                    }
+                    Notification::Reconnection => {
+                        error!("Reconnected to broker");
+                        resubscribe(&mut agent, &agent_id, state.event.config());
+                    }
+                    _ => error!("Unsupported notification type = '{:?}'", message),
                 }
+
                 Ok(())
             })
     });
@@ -348,6 +357,53 @@ pub(crate) fn run() {
         .serve(tcp_stream.incoming());
 
     tokio::run(server.join(mq_rx).join(hq_rx).map(|_| ()));
+}
+
+fn subscribe(
+    agent: &mut Agent,
+    agent_id: &AgentId,
+    events_config: &endpoint::event::ConfigMap,
+) -> Result<(), String> {
+    let group = SharedGroup::new("loadbalancer", agent_id.as_account_id().clone());
+
+    // Responses
+    agent
+        .subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)
+        .map_err(|err| format!("Error subscribing to app's responses topic: {}", err))?;
+
+    // Audience level events for each tenant
+    for (tenant_audience, tenant_events_config) in events_config {
+        for from_account_id in tenant_events_config.sources() {
+            agent
+                .subscribe(
+                    &Subscription::broadcast_events(
+                        from_account_id,
+                        API_VERSION,
+                        &format!("audiences/{}/events", tenant_audience),
+                    ),
+                    QoS::AtLeastOnce,
+                    Some(&group),
+                )
+                .map_err(|err| format!("Error subscribing to app's events topic: {}", err))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn resubscribe(agent: &mut Agent, agent_id: &AgentId, events_config: &endpoint::event::ConfigMap) {
+    if let Err(err) = subscribe(agent, agent_id, events_config) {
+        let err = format!("Failed to resubscribe after reconnection: {}", err);
+        error!("{}", err);
+
+        let svc_error = SvcError::builder()
+            .kind("resubscription_error", "Resubscription error")
+            .detail(&err)
+            .build();
+
+        sentry::send(svc_error)
+            .unwrap_or_else(|err| warn!("Error sending error to Sentry: {}", err));
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////
