@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use failure::{err_msg, Error};
+use anyhow::{Context, Result};
 use futures::{sync::mpsc, Future, Stream};
 use log::{error, info};
 use serde_json::Value as JsonValue;
@@ -70,10 +70,10 @@ impl OutgoingStream {
         (object, ostream)
     }
 
-    pub(crate) fn send(&self, message: OutgoingMessage) -> Result<(), Error> {
+    pub(crate) fn send(&self, message: OutgoingMessage) -> Result<()> {
         self.tx
             .unbounded_send(message)
-            .map_err(|_| err_msg("error sending message to the outgoing HTTP stream"))
+            .context("error sending message to the outgoing HTTP stream")
     }
 
     fn send_handler(
