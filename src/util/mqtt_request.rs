@@ -1,4 +1,4 @@
-use failure::{err_msg, Error};
+use anyhow::{format_err, Result};
 use futures::sync::oneshot;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -34,7 +34,7 @@ impl Adapter {
     pub(crate) fn request(
         &mut self,
         req: OutgoingRequest,
-    ) -> Result<oneshot::Receiver<IncomingResponse>, Error> {
+    ) -> Result<oneshot::Receiver<IncomingResponse>> {
         let id = req.properties().correlation_data().to_owned();
         self.tx.publish(Box::new(req))?;
 
@@ -44,11 +44,12 @@ impl Adapter {
         Ok(rx)
     }
 
-    pub(crate) fn commit_response(&mut self, resp: IncomingResponse) -> Result<(), Error> {
+    pub(crate) fn commit_response(&mut self, resp: IncomingResponse) -> Result<()> {
         let id = resp.properties().correlation_data();
+
         if let Some(tx) = self.store.remove(id) {
             return tx.send(resp).map_err(|_| {
-                err_msg("error committing incoming MQTT response, a receiver may have been already destroyed by timeout")
+                format_err!("error committing incoming MQTT response, a receiver may have been already destroyed by timeout")
             });
         }
 

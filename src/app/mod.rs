@@ -4,8 +4,8 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use std::{sync::Arc, thread};
 
+use anyhow::{format_err, Context, Result};
 use chrono::Utc;
-use failure::{format_err, Error};
 use futures::{sync::mpsc, Future, Stream};
 use futures_locks::Mutex;
 use http::{header, Method, Response as HttpResponse, StatusCode};
@@ -363,13 +363,13 @@ fn subscribe(
     agent: &mut Agent,
     agent_id: &AgentId,
     events_config: &endpoint::event::ConfigMap,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let group = SharedGroup::new("loadbalancer", agent_id.as_account_id().clone());
 
     // Responses
     agent
         .subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)
-        .map_err(|err| format!("Error subscribing to app's responses topic: {}", err))?;
+        .context("Error subscribing to app's responses topic")?;
 
     // Audience level events for each tenant
     for (tenant_audience, tenant_events_config) in events_config {
@@ -384,7 +384,7 @@ fn subscribe(
                     QoS::AtLeastOnce,
                     Some(&group),
                 )
-                .map_err(|err| format!("Error subscribing to app's events topic: {}", err))?;
+                .context("Error subscribing to app's events topic")?;
         }
     }
 
@@ -414,7 +414,7 @@ fn handle_message(
     topic: &str,
     payload: Arc<Vec<u8>>,
     state: Arc<State>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(payload.as_slice())?;
     match envelope.properties() {
         compat::IncomingEnvelopeProperties::Response(_) => {

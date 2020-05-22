@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-use failure::{bail, format_err, Error};
+use anyhow::{bail, format_err, Result};
 use serde_json::Value as JsonValue;
 use svc_agent::{AccountId, Authenticable};
 
@@ -48,11 +48,7 @@ impl State {
         &self.config
     }
 
-    pub(crate) fn handle(
-        &self,
-        topic: &str,
-        inev: &IncomingEvent,
-    ) -> Result<OutgoingMessage, Error> {
+    pub(crate) fn handle(&self, topic: &str, inev: &IncomingEvent) -> Result<OutgoingMessage> {
         let from_account_id = inev.properties().as_account_id();
         let audience = extract_audience(topic)?;
 
@@ -87,7 +83,7 @@ impl State {
 
 //////////////////////////////////////////////////////////////////////////////////
 
-fn extract_audience(topic: &str) -> Result<&str, Error> {
+fn extract_audience(topic: &str) -> Result<&str> {
     use std::ffi::OsStr;
     use std::path::{Component, Path};
 
@@ -95,12 +91,12 @@ fn extract_audience(topic: &str) -> Result<&str, Error> {
     let mut topic = topic_path.components();
 
     let events_literal = Some(Component::Normal(OsStr::new("events")));
-    if topic.next_back() == events_literal {
-    } else {
-        return Err(format_err!(
+
+    if topic.next_back() != events_literal {
+        bail!(
             "topic does not match the pattern 'audiences/AUDIENCE/events': {}",
             topic_path.display()
-        ));
+        );
     }
 
     let maybe_audience = topic.next_back();
@@ -115,18 +111,19 @@ fn extract_audience(topic: &str) -> Result<&str, Error> {
                         topic_path.display()
                     )
                 })?;
+
                 Ok(audience)
             }
-            _ => Err(format_err!(
+            _ => bail!(
                 "topic does not match the pattern 'audiences/AUDIENCE/events': {}",
                 topic_path.display()
-            )),
+            ),
         }
     } else {
-        Err(format_err!(
+        bail!(
             "topic does not match the pattern 'audiences/AUDIENCE/events': {}",
             topic_path.display()
-        ))
+        );
     }
 }
 
