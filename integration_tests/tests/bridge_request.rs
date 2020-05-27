@@ -8,8 +8,8 @@ use reqwest::header::{self, HeaderMap, HeaderValue};
 use serde_json::{json, Value as JsonValue};
 use svc_agent::{
     mqtt::{
-        compat, AgentBuilder, AgentConfig, ConnectionMode, Notification, OutgoingResponse, QoS,
-        ShortTermTimingProperties,
+        AgentBuilder, AgentConfig, AgentNotification, ConnectionMode, IncomingMessage,
+        OutgoingResponse, QoS, ShortTermTimingProperties,
     },
     AccountId, AgentId, SharedGroup, Subscription,
 };
@@ -43,15 +43,12 @@ fn run_ping_service() {
         .expect("Error subscribing to multicast requests");
 
     // Message handling loop.
-    while let Ok(Notification::Publish(message)) = rx.recv() {
-        let bytes = message.payload.as_slice();
-
-        let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(bytes)
-            .expect("Failed to parse incoming message");
-
+    while let Ok(AgentNotification::Message(message, _)) = rx.recv() {
         // Handle request.
-        match compat::into_request::<JsonValue>(envelope) {
-            Ok(request) => {
+        match message {
+            Ok(IncomingMessage::Request(request)) => {
+                let request = svc_agent::mqtt::IncomingRequest::convert::<JsonValue>(request)
+                    .expect("Failed to convert to json");
                 assert_eq!(request.properties().method(), "ping");
                 assert_eq!(request.payload()["message"].as_str(), Some("ping"));
 
@@ -67,10 +64,9 @@ fn run_ping_service() {
                     API_VERSION,
                 );
 
-                agent
-                    .publish(Box::new(response))
-                    .expect("Failed to publish response");
+                agent.publish(response).expect("Failed to publish response");
             }
+            Ok(other) => panic!(other),
             Err(err) => panic!(err),
         }
     }
