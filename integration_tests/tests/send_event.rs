@@ -110,9 +110,7 @@ impl ServiceMock {
         let props = OutgoingEventProperties::new("message", timing);
         let event = OutgoingEvent::broadcast(payload, props, "audiences/example.org/events");
 
-        self.agent
-            .publish(Box::new(event))
-            .expect("Failed to publish event");
+        self.agent.publish(event).expect("Failed to publish event");
     }
 }
 

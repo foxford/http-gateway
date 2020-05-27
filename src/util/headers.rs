@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use anyhow::{format_err, Context, Error};
 use http::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::ser::Serialize;
-use svc_agent::{mqtt::IncomingMessage, Addressable};
+use svc_agent::{mqtt::IncomingMessageContent, Addressable};
 
 #[derive(Debug)]
 pub(crate) struct Headers(Vec<(String, String)>);
@@ -30,10 +30,10 @@ impl Headers {
     }
 }
 
-impl<T, P: Addressable + Serialize> TryFrom<&IncomingMessage<T, P>> for Headers {
+impl<T, P: Addressable + Serialize> TryFrom<&IncomingMessageContent<T, P>> for Headers {
     type Error = Error;
 
-    fn try_from(message: &IncomingMessage<T, P>) -> Result<Self, Self::Error> {
+    fn try_from(message: &IncomingMessageContent<T, P>) -> Result<Self, Self::Error> {
         let props_value =
             serde_json::to_value(message.properties()).context("Failed to serialize properties")?;
 

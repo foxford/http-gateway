@@ -13,8 +13,8 @@ use log::{error, info, warn};
 use serde_derive::Deserialize;
 use serde_json::Value as JsonValue;
 use svc_agent::mqtt::{
-    compat, AgentBuilder, ConnectionMode, Notification, OutgoingRequest, OutgoingRequestProperties,
-    QoS, SubscriptionTopic,
+    AgentBuilder, AgentNotification, ConnectionMode, IncomingEvent, IncomingMessage,
+    IncomingResponse, OutgoingRequest, OutgoingRequestProperties, QoS, SubscriptionTopic,
 };
 use svc_agent::{
     mqtt::{Agent, ShortTermTimingProperties},
@@ -230,7 +230,7 @@ pub(crate) fn run() {
         .expect("Failed to create an agent");
 
     // Event loop for incoming messages of MQTT Agent
-    let (mq_tx, mq_rx) = mpsc::unbounded::<Notification>();
+    let (mq_tx, mq_rx) = mpsc::unbounded::<AgentNotification>();
     thread::spawn(move || {
         for message in rx {
             if mq_tx.unbounded_send(message).is_err() {
@@ -280,30 +280,32 @@ pub(crate) fn run() {
             .lock()
             .and_then(move |mut resp_tx| {
                 match message {
-                    Notification::Publish(message) => {
-                        let topic: &str = &message.topic_name;
+                    AgentNotification::Message(message, metadata) => {
+                        let topic: &str = &metadata.topic;
 
                         // Log incoming messages
                         info!(
-                            "Incoming message = '{}' sent to the topic = '{}', dup = '{}', pkid = '{:?}'",
-                            String::from_utf8_lossy(message.payload.as_slice()),
+                            "Incoming message = '{:?}' sent to the topic = '{}', dup = '{}', pkid = '{:?}'",
+                            message,
                             topic,
-                            message.dup,
-                            message.pkid,
+                            metadata.dup,
+                            metadata.pkid,
                         );
+
+                        if let Ok(message) = message {
 
                         let result = handle_message(
                             &mut resp_tx,
                             &mut hq_tx,
                             topic,
-                            message.payload.clone(),
+                            message.clone(),
                             state.clone(),
                         );
 
                         if let Err(err) = result {
                             error!(
-                                "Error processing a message = '{text}' sent to the topic = '{topic}', {detail}",
-                                text = String::from_utf8_lossy(message.payload.as_slice()),
+                                "Error processing a message = '{text:?}' sent to the topic = '{topic}', {detail}",
+                                text = message,
                                 topic = topic,
                                 detail = err,
                             );
@@ -316,10 +318,11 @@ pub(crate) fn run() {
                             notify_error(err);
                         }
                     }
-                    Notification::Disconnection => {
+                    }
+                    AgentNotification::Disconnection => {
                         error!("Disconnected from broker");
                     }
-                    Notification::Reconnection => {
+                    AgentNotification::Reconnection => {
                         error!("Reconnected to broker");
                         resubscribe(&mut agent, &agent_id, state.event.config());
                     }
@@ -412,23 +415,22 @@ fn handle_message(
     resp_tx: &mut Adapter,
     hq_tx: &mut OutgoingStream,
     topic: &str,
-    payload: Arc<Vec<u8>>,
+    message: IncomingMessage<String>,
     state: Arc<State>,
 ) -> Result<()> {
-    let envelope = serde_json::from_slice::<compat::IncomingEnvelope>(payload.as_slice())?;
-    match envelope.properties() {
-        compat::IncomingEnvelopeProperties::Response(_) => {
-            let inresp = compat::into_response(envelope)?;
-            resp_tx.commit_response(inresp)
+    match message {
+        IncomingMessage::Response(resp) => {
+            let resp = IncomingResponse::convert::<JsonValue>(resp)?;
+            resp_tx.commit_response(resp)
         }
-        compat::IncomingEnvelopeProperties::Event(_) => {
-            let inev = compat::into_event::<JsonValue>(envelope)?;
-            let outev = state.event.handle(topic, &inev)?;
+        IncomingMessage::Event(event) => {
+            let event = IncomingEvent::convert::<JsonValue>(event)?;
+            let outev = state.event.handle(topic, &event)?;
             hq_tx.send(outev)
         }
         _ => Err(format_err!(
-            "unsupported message type, envelope = '{:?}'",
-            envelope
+            "unsupported message type, message = '{:?}'",
+            message
         )),
     }
 }

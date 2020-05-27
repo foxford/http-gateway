@@ -2,13 +2,12 @@ use anyhow::{format_err, Result};
 use futures::sync::oneshot;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use svc_agent::mqtt::Agent;
+use svc_agent::mqtt::{Agent, OutgoingMessage};
 use svc_agent::AgentId;
 
 ////////////////////////////////////////////////////////////////////////////////
 
 pub(crate) type IncomingResponse = svc_agent::mqtt::IncomingResponse<JsonValue>;
-pub(crate) type OutgoingRequest = svc_agent::mqtt::OutgoingRequest<JsonValue>;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -31,12 +30,15 @@ impl Adapter {
         self.tx.id()
     }
 
-    pub(crate) fn request(
+    pub(crate) fn request<T: serde::Serialize>(
         &mut self,
-        req: OutgoingRequest,
+        req: OutgoingMessage<T>,
     ) -> Result<oneshot::Receiver<IncomingResponse>> {
-        let id = req.properties().correlation_data().to_owned();
-        self.tx.publish(Box::new(req))?;
+        let id = match req {
+            OutgoingMessage::Request(ref req) => req.properties().correlation_data().to_owned(),
+            _ => return Err(format_err!("Wrong message type")),
+        };
+        self.tx.publish(req)?;
 
         let (tx, rx) = oneshot::channel();
         self.store.insert(id, tx);
