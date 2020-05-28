@@ -12,7 +12,7 @@ use crate::util::http_stream::OutgoingMessage;
 
 pub(crate) type ConfigMap = HashMap<String, Config>;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub(crate) struct Config {
     callback: String,
     sources: Vec<AccountId>,
@@ -42,10 +42,6 @@ pub(crate) struct State {
 impl State {
     pub(crate) fn new(config: ConfigMap, tokens: HashMap<String, String>) -> Self {
         Self { config, tokens }
-    }
-
-    pub(crate) fn config(&self) -> &ConfigMap {
-        &self.config
     }
 
     pub(crate) fn handle(&self, topic: &str, inev: &IncomingEvent) -> Result<OutgoingMessage> {
