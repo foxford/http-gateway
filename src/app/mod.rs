@@ -18,6 +18,7 @@ use svc_agent::mqtt::{
 };
 use svc_agent::{
     mqtt::{Agent, ShortTermTimingProperties},
+    queue_counter::QueueCounterHandle,
     AccountId, AgentId, Authenticable, ResponseSubscription, SharedGroup, Source, Subscription,
 };
 use svc_authn::{jose::Algorithm, token::jws_compact};
@@ -30,6 +31,7 @@ use tower_web::{
 };
 use uuid::Uuid;
 
+use self::config::{Config, KruonisConfig};
 use crate::util::headers::Headers;
 use crate::util::http_stream::OutgoingStream;
 use crate::util::mqtt_request::Adapter;
@@ -229,6 +231,8 @@ pub(crate) fn run() {
         .start(&agent_config)
         .expect("Failed to create an agent");
 
+    let queue_counter = tx.get_queue_counter();
+
     // Event loop for incoming messages of MQTT Agent
     let (mq_tx, mq_rx) = mpsc::unbounded::<AgentNotification>();
     thread::spawn(move || {
@@ -240,7 +244,7 @@ pub(crate) fn run() {
     });
 
     // Create Subscriptions
-    subscribe(&mut tx, &agent_id, &config.events).expect("Failed to subscribe");
+    subscribe(&mut tx, &agent_id, &config).expect("Failed to subscribe");
     let agent = tx.clone();
 
     // Create MQTT Request Adapter
@@ -266,15 +270,19 @@ pub(crate) fn run() {
 
     // Application resources
     let state = Arc::new(State {
-        event: endpoint::event::State::new(config.events, tokens),
+        event: endpoint::event::State::new(config.events.clone(), tokens),
     });
 
+    let config = Arc::new(config);
+    let config_ = config.clone();
     let (hq_tx, hq_rx) = OutgoingStream::new(&config.http_client);
     let mq_rx = mq_rx.for_each(move |message| {
         let mut hq_tx = hq_tx.clone();
         let state = state.clone();
         let mut agent = agent.clone();
         let agent_id = agent_id.clone();
+        let queue_counter = queue_counter.clone();
+        let config = config_.clone();
 
         resp_tx
             .lock()
@@ -294,37 +302,40 @@ pub(crate) fn run() {
 
                         if let Ok(message) = message {
 
-                        let result = handle_message(
-                            &mut resp_tx,
-                            &mut hq_tx,
-                            topic,
-                            message.clone(),
-                            state.clone(),
-                        );
-
-                        if let Err(err) = result {
-                            error!(
-                                "Error processing a message = '{text:?}' sent to the topic = '{topic}', {detail}",
-                                text = message,
-                                topic = topic,
-                                detail = err,
+                            let result = handle_message(
+                                &mut resp_tx,
+                                &mut hq_tx,
+                                topic,
+                                message.clone(),
+                                state.clone(),
+                                &config.telemetry,
+                                queue_counter.clone(),
+                                agent_id
                             );
 
-                            let err = SvcError::builder()
-                                .kind("message_processing_error", "Message processing error")
-                                .detail(&err.to_string())
-                                .build();
+                            if let Err(err) = result {
+                                error!(
+                                    "Error processing a message = '{text:?}' sent to the topic = '{topic}', {detail}",
+                                    text = message,
+                                    topic = topic,
+                                    detail = err,
+                                );
 
-                            notify_error(err);
+                                let err = SvcError::builder()
+                                    .kind("message_processing_error", "Message processing error")
+                                    .detail(&err.to_string())
+                                    .build();
+
+                                notify_error(err);
+                            }
                         }
-                    }
                     }
                     AgentNotification::Disconnection => {
                         error!("Disconnected from broker");
                     }
                     AgentNotification::Reconnection => {
                         error!("Reconnected to broker");
-                        resubscribe(&mut agent, &agent_id, state.event.config());
+                        resubscribe(&mut agent, &agent_id, &config.clone());
                     }
                     _ => error!("Unsupported notification type = '{:?}'", message),
                 }
@@ -334,7 +345,7 @@ pub(crate) fn run() {
     });
 
     // Resources
-    let request = Request::new(req_tx, Duration::from_secs(config.http_client.timeout()));
+    let request = Request::new(req_tx, Duration::from_secs((&config.http_client).timeout()));
 
     // Middleware
     let cors = CorsBuilder::new()
@@ -362,11 +373,7 @@ pub(crate) fn run() {
     tokio::run(server.join(mq_rx).join(hq_rx).map(|_| ()));
 }
 
-fn subscribe(
-    agent: &mut Agent,
-    agent_id: &AgentId,
-    events_config: &endpoint::event::ConfigMap,
-) -> anyhow::Result<()> {
+fn subscribe(agent: &mut Agent, agent_id: &AgentId, config: &Config) -> anyhow::Result<()> {
     let group = SharedGroup::new("loadbalancer", agent_id.as_account_id().clone());
 
     // Responses
@@ -374,8 +381,15 @@ fn subscribe(
         .subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)
         .context("Error subscribing to app's responses topic")?;
 
+    if let KruonisConfig {
+        id: Some(ref kruonis_id),
+    } = config.kruonis
+    {
+        subscribe_to_kruonis(kruonis_id, agent, agent_id)?;
+    }
+
     // Audience level events for each tenant
-    for (tenant_audience, tenant_events_config) in events_config {
+    for (tenant_audience, tenant_events_config) in &config.events {
         for from_account_id in tenant_events_config.sources() {
             agent
                 .subscribe(
@@ -394,8 +408,28 @@ fn subscribe(
     Ok(())
 }
 
-fn resubscribe(agent: &mut Agent, agent_id: &AgentId, events_config: &endpoint::event::ConfigMap) {
-    if let Err(err) = subscribe(agent, agent_id, events_config) {
+fn subscribe_to_kruonis(
+    kruonis_id: &AccountId,
+    agent: &mut Agent,
+    agent_id: &AgentId,
+) -> Result<()> {
+    let timing = ShortTermTimingProperties::new(Utc::now());
+
+    let topic = Subscription::unicast_requests_from(kruonis_id)
+        .subscription_topic(agent.id(), API_VERSION)
+        .context("Failed to build subscription topic")?;
+
+    let mut props = OutgoingRequestProperties::new("kruonis.subscribe", &topic, "", timing);
+    props.set_agent_id(agent_id.to_owned());
+
+    let event = OutgoingRequest::multicast(serde_json::json!({}), props, kruonis_id);
+
+    agent.publish(event).context("Failed to publish message")?;
+    Ok(())
+}
+
+fn resubscribe(agent: &mut Agent, agent_id: &AgentId, config: &Config) {
+    if let Err(err) = subscribe(agent, agent_id, config) {
         let err = format!("Failed to resubscribe after reconnection: {}", err);
         error!("{}", err);
 
@@ -417,6 +451,9 @@ fn handle_message(
     topic: &str,
     message: IncomingMessage<String>,
     state: Arc<State>,
+    telemetry_config: &config::TelemetryConfig,
+    queue_counter: QueueCounterHandle,
+    agent_id: AgentId,
 ) -> Result<()> {
     match message {
         IncomingMessage::Response(resp) => {
@@ -424,9 +461,23 @@ fn handle_message(
             resp_tx.commit_response(resp)
         }
         IncomingMessage::Event(event) => {
-            let event = IncomingEvent::convert::<JsonValue>(event)?;
-            let outev = state.event.handle(topic, &event)?;
-            hq_tx.send(outev)
+            if event.properties().label() == Some("metric.pull") {
+                let metrics_resp = endpoint::metrics::PullHandler::handle(
+                    event,
+                    telemetry_config,
+                    queue_counter,
+                    agent_id,
+                )?;
+                if let Some(metrics_resp) = metrics_resp {
+                    resp_tx.publish_publishable(metrics_resp)
+                } else {
+                    Ok(())
+                }
+            } else {
+                let event = IncomingEvent::convert::<JsonValue>(event)?;
+                let outev = state.event.handle(topic, &event)?;
+                hq_tx.send(outev)
+            }
         }
         _ => Err(format_err!(
             "unsupported message type, message = '{:?}'",
@@ -445,7 +496,7 @@ fn notify_error(error: SvcError) {
 
 //////////////////////////////////////////////////////////////////////////////////
 
-mod config;
+pub(crate) mod config;
 mod endpoint;
 
 //////////////////////////////////////////////////////////////////////////////////
