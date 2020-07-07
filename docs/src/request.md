@@ -7,7 +7,10 @@ Dispatches given request to the required service.
 ```
 POST /api/v1/request
 Authorization: Bearer ${YOUR JWT}
+Gateway-Local-Tracking-Id: ${YOUR_TRACKING_ID}
 ```
+### Headers
+`Gateway-Local-Tracking-Id` is optional header allowing to specify tracking id.
 
 ### Parameters
 
