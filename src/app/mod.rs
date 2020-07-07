@@ -69,6 +69,7 @@ impl_web! {
             &self,
             body: RequestPayload,
             sub: AccountId,
+            gateway_local_tracking_label: Option<String>,
         ) -> impl Future<Item = Result<HttpResponse<String>, tower_web::Error>, Error = ()> {
             let error = || SvcError::builder().kind("request_error", "Error sending a request");
             let timeout = self.timeout;
@@ -103,6 +104,9 @@ impl_web! {
                         ShortTermTimingProperties::new(Utc::now()),
                     );
                     props.set_agent_id(body.me);
+                    if let Some(tracking_label) = gateway_local_tracking_label {
+                        props.set_local_tracking_label(tracking_label);
+                    }
                     let req = OutgoingRequest::multicast(body.payload, props, &body.destination);
 
                     // Send request

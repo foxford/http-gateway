@@ -20,6 +20,9 @@ tokio = "0.1"
 futures = "0.1"
 futures-locks = "0.3"
 tower-web = "0.3"
-svc-authn = { version = "0.5", features = ["jose", "tower-web"] }
-svc-agent = { version = "0.13", features = ["queue-counter"] }
+svc-authn = { version = "0.6", features = ["jose", "tower-web"] }
+svc-agent = { version = "0.14", features = ["queue-counter"] }
 svc-error = { version = "0.1", features = ["sentry-extension"] }
+
+[patch.crates-io]
+svc-agent = {git = "https://github.com/netology-group/svc-agent-rs", tag = "v0.14.2"}
