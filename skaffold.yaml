@@ -1,4 +1,4 @@
-apiVersion: skaffold/v1beta11
+apiVersion: skaffold/v2beta4
 kind: Config
 build:
   artifacts:
@@ -7,16 +7,11 @@ build:
       docker:
         dockerfile: docker/Dockerfile
   tagPolicy:
-    envTemplate:
-      template: "{{.IMAGE_NAME}}:{{.IMAGE_TAG}}"
+    gitCommit: {}
   local:
     push: true
     useDockerCLI: true
 deploy:
-  kubectl:
-    manifests:
-      - deploy/k8s/http-gateway.yaml
-      - deploy/k8s/http-gateway-config.yaml
-      - deploy/k8s/http-gateway-environment.yaml
-      - deploy/k8s/http-gateway-ingress.yaml
-      - deploy/k8s/http-gateway-service.yaml
+  kustomize:
+    paths:
+    - deploy/k8s/overlays/ns
