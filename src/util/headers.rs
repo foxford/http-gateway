@@ -42,6 +42,13 @@ impl<T, P: Addressable + Serialize> TryFrom<&IncomingMessageContent<T, P>> for H
             .ok_or_else(|| format_err!("Properties is not an object"))?;
 
         let mut headers = Vec::with_capacity(props_object.len());
+        headers.push((
+            "User-Agent".into(),
+            format!(
+                "{} through http-gateway",
+                message.properties().as_agent_id()
+            ),
+        ));
 
         for (key, json_value) in props_object.into_iter() {
             let value = json_value
