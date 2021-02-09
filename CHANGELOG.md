@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.5 (February 9, 2021)
+
+### Features
+- Add gateway-local-tracking-label header handler ([5592132](https://github.com/netology-group/http-gateway/commit/55921327c94e8318a560a8e25b10995af8f01784))
+- Add event subscription API version configuration ([6c59f1b](https://github.com/netology-group/http-gateway/commit/6c59f1b58266a0bb99848d26e760ef5538728f2a))
+
+### Changes
+- Update svc-agent ([a80b37d](https://github.com/netology-group/http-gateway/commit/a80b37d277f92d5c755f3f0cb96902c7521b73c6))
+
+
 ## v0.3.4 (June 3, 2020)
 
 ### Features
