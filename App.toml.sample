@@ -12,7 +12,10 @@ key = "data/keys/iam.public_key.p8.der.sample"
 
 [events."example.net"]
 callback = "https://example.net/callback"
-sources = ["event-source.svc.example.org"]
+
+[[events."example.net".sources]]
+account_id = "event-source.svc.example.org"
+version = "v1"
 
 [mqtt]
 uri = "mqtt://192.168.99.100:1883"
