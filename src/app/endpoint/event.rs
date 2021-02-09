@@ -15,7 +15,7 @@ pub(crate) type ConfigMap = HashMap<String, Config>;
 #[derive(Debug, Deserialize, Clone)]
 pub(crate) struct Config {
     callback: String,
-    sources: Vec<AccountId>,
+    sources: Vec<SourceConfig>,
 }
 
 impl Config {
@@ -23,8 +23,24 @@ impl Config {
         &self.callback
     }
 
-    pub(crate) fn sources(&self) -> &Vec<AccountId> {
+    pub(crate) fn sources(&self) -> &Vec<SourceConfig> {
         &self.sources
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub(crate) struct SourceConfig {
+    account_id: AccountId,
+    version: String,
+}
+
+impl SourceConfig {
+    pub(crate) fn account_id(&self) -> &AccountId {
+        &self.account_id
+    }
+
+    pub(crate) fn version(&self) -> &str {
+        &self.version
     }
 }
 
@@ -55,7 +71,7 @@ impl State {
             )
         })?;
 
-        if !config.sources().contains(from_account_id) {
+        if !config.sources().iter().any(|s| s.account_id() == from_account_id) {
             bail!(
                 "sending events for audience = '{}' from application = '{}' is not allowed",
                 audience,

@@ -394,12 +394,12 @@ fn subscribe(agent: &mut Agent, agent_id: &AgentId, config: &Config) -> anyhow::
 
     // Audience level events for each tenant
     for (tenant_audience, tenant_events_config) in &config.events {
-        for from_account_id in tenant_events_config.sources() {
+        for source in tenant_events_config.sources() {
             agent
                 .subscribe(
                     &Subscription::broadcast_events(
-                        from_account_id,
-                        API_VERSION,
+                        source.account_id(),
+                        source.version(),
                         &format!("audiences/{}/events", tenant_audience),
                     ),
                     QoS::AtLeastOnce,
