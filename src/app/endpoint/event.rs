@@ -71,7 +71,11 @@ impl State {
             )
         })?;
 
-        if !config.sources().iter().any(|s| s.account_id() == from_account_id) {
+        if !config
+            .sources()
+            .iter()
+            .any(|s| s.account_id() == from_account_id)
+        {
             bail!(
                 "sending events for audience = '{}' from application = '{}' is not allowed",
                 audience,
