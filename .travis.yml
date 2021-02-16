@@ -1,16 +1,16 @@
 language: rust
-rust:
-  - stable
+rust: stable
+
 addons:
   apt:
     packages:
       - awscli
-cache:
-  cargo: true
-before_cache:
-  - rm -rf ${TRAVIS_HOME}/.cargo/registry
+
+cache: cargo
+
 git:
   depth: 1
+
 jobs:
   include:
     - stage: check
@@ -24,16 +24,24 @@ jobs:
       name: Clippy
       install: rustup component add clippy-preview
       script: cargo clippy
-    - stage: check
+    - stage: build
       name: Docs
-      install: cargo install mdbook --vers 0.2.3 --force
-      script: mdbook build docs && ./deploy.init.sh && PROJECT='http-gateway' ./deploy/s3-docs.sh
-    - stage: deploy
-      name: Kubernetes
-      script: ./deploy.init.sh && ./deploy/travis-run.sh
+      install: cargo install mdbook --vers ^0.4
+      script:
+        - ./deploy.init.sh
+        - mdbook build docs
+        - ./deploy/ci-mdbook.sh
+    - stage: build
+      name: Build
+      script:
+        - ./deploy.init.sh
+        - ./deploy/ci-install-tools.sh
+        - ./deploy/ci-build.sh
+
 stages:
   - name: check
-  - name: deploy
-    if: (branch = master AND type = push) OR tag IS present
+  - name: build
+    if: branch = master AND type = push
+
 notifications:
   email: false
