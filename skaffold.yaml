@@ -2,7 +2,7 @@ apiVersion: skaffold/v2beta11
 kind: Config
 build:
   artifacts:
-  - image: netologygroup/http-gateway
+  - image: foxford/http-gateway
     context: .
     docker:
       dockerfile: docker/Dockerfile
