@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    {{- include "http-gateway.labels" . | nindent 4 }}
+  name: {{ include "http-gateway.fullname" . }}-app
+data:
+  App.toml: |
+    {{- $id :=  list (include "http-gateway.name" .) (include "http-gateway.shortNamespace" .) "svc" .Values.app.svc.audience | compact | join "." }}
+    id = {{ $id | quote }}
+
+    [mqtt]
+    uri = "tcp://mqtt-gateway-cluster:51883"
+    clean_session = false
+    incoming_message_queue_size = 1000000
+    outgoing_message_queue_size = 1000000
+    reconnect_interval = 3
+    keep_alive = 15
+
+    [http]
+    listener_address = "0.0.0.0:8080"
+
+    [http.cors]
+    allow_origins = "*"
+    max_age = 86400
+
+    [http_client]
+    timeout = {{ .Values.app.httpClient.timeout }}
+
+    [sentry]
+    dsn = {{ .Values.app.sentryDsn | quote }}
+    environment = {{ regexSplit "-" .Release.Namespace -1 | first | quote }}
+
+    ##
+    ## SVC
+    ##
+    [id_token]
+    algorithm = {{ .Values.app.svc.algorithm | quote }}
+    key = {{ .Values.app.svc.authn.key | quote }}
+
+    {{- printf "\n" }}
+    {{ $svc := list (include "http-gateway.shortNamespace" .) "svc" .Values.app.svc.audience | compact | join "." }}
+    {{- range .Values.app.audiences }}
+    ##
+    ## {{ .audience }}
+    ##
+    {{- $ns := "" }}
+    {{- if regexMatch "(?:talenttech)" .audience }}
+    {{- $ns = regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.shortNamespace" $) "beta" }}
+    {{- else }}
+    {{- $ns = include "http-gateway.shortNamespace" $ }}
+    {{- end }}
+    {{- $svc_audience := "" }}
+    {{- $usr_audience := "" }}
+    {{- if regexMatch "(?:talenttech)" .audience }}
+    {{- $svc_audience = list (regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.shortNamespace" $) "beta") "svc" .audience | compact | join "." }}
+    {{- $usr_audience = list (regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.shortNamespace" $) "beta") "usr" .audience | compact | join "." }}
+    {{- else }}
+    {{- $svc_audience = list (include "http-gateway.shortNamespace" $) "svc" .audience | compact | join "." }}
+    {{- $usr_audience = list (include "http-gateway.shortNamespace" $) "usr" .audience | compact | join "." }}
+    {{- end }}
+    [authn.{{ list "iam" $svc_audience | join "." | quote }}]
+    audience = [{{ $svc_audience | quote }}, {{ $usr_audience | quote }}]
+    algorithm = "ES256"
+    key = {{ .authn.key | quote }}
+
+    {{- printf "\n" }}
+    {{- $audience := .audience }}
+    [events.{{ list $ns $audience | compact | join "." | quote }}]
+    callback = {{ .eventCallback | quote }}
+
+    {{- printf "\n" }}
+    {{- range .sources }}
+    [[events.{{ list $ns $audience | compact | join "." | quote }}.sources]]
+    account_id = {{ list .source $svc | join "." | quote }}
+    version = {{ .version | quote }}
+    {{- printf "\n" }}
+    {{- end }}
+    {{- end }}

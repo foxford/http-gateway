@@ -13,6 +13,13 @@ build:
     useDockerCLI: true
     tryImportMissing: true
 deploy:
-  kustomize:
-    paths:
-    - deploy/k8s/overlays/ns
+  helm:
+    releases:
+      - name: http-gateway
+        chartPath: chart
+        artifactOverrides:
+          app.image: foxford/http-gateway
+        imageStrategy:
+          helm: {}
+        valuesFiles:
+          - deploy/values.yaml

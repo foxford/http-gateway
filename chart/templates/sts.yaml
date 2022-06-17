@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "http-gateway.fullname" . }}
+  labels:
+    {{- include "http-gateway.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "http-gateway.fullname" . }}-headless
+  selector:
+    matchLabels:
+      {{- include "http-gateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/app-cm: {{ include (print $.Template.BasePath "/app-cm.yaml") . | sha256sum }}
+      labels:
+        {{- include "http-gateway.selectorLabels" . | nindent 8 }}
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: APP_AGENT_LABEL
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config
+              mountPath: /app/App.toml
+              subPath: App.toml
+              readOnly: true
+            {{- with .Values.app.svc }}
+            {{- $audience := .audience }}
+            {{- range $secret, $mounts := .credentials }}
+            {{- range $mounts }}
+            - name: {{ include "http-gateway.volumeMountName" (list $audience $secret) }}
+              mountPath: {{ .mountPath }}
+              subPath: {{ .subPath }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- range .Values.app.audiences }}
+            {{- $audience := .audience }}
+            {{- range $secret, $mounts := .credentials }}
+            {{- range $mounts }}
+            - name: {{ include "http-gateway.volumeMountName" (list $audience $secret) }}
+              mountPath: {{ .mountPath }}
+              subPath: {{ .subPath }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "http-gateway.fullname" . }}-app
+        {{- with .Values.app.svc }}
+        {{- $audience := .audience }}
+        {{- range $secret, $mounts := .credentials }}
+        - name: {{ include "http-gateway.volumeMountName" (list $audience $secret) }}
+          secret:
+            secretName: {{ $secret }}
+        {{- end }}
+        {{- end }}
+        {{- range .Values.app.audiences }}
+        {{- $audience := .audience }}
+        {{- range $secret, $mounts := .credentials }}
+        - name: {{ include "http-gateway.volumeMountName" (list $audience $secret) }}
+          secret:
+            secretName: {{ $secret }}
+        {{- end }}
+        {{- end }}
