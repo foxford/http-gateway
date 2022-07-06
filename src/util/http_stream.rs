@@ -20,7 +20,7 @@ pub(crate) struct Config {
 
 impl Config {
     pub(crate) fn timeout(&self) -> u64 {
-        self.timeout.unwrap_or_else(|| DEFAULT_TIMEOUT)
+        self.timeout.unwrap_or(DEFAULT_TIMEOUT)
     }
 }
 
