@@ -1401,9 +1401,9 @@ checksum = "e3cbf9f658cdb5000fcf6f362b8ea2ba154b9f146a61c7a20d647034c6b6561b"
 
 [[package]]
 name = "proc-macro-hack"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "463bf29e7f11344e58c9e01f171470ab15c925c6822ad75028cc1c0e1d1eb63b"
+checksum = "d7f95648580798cc44ff8efb9bb0d7ee5205ea32e087b31b0732f3e8c2648ee2"
 dependencies = [
  "proc-macro-hack-impl",
 ]
@@ -1421,9 +1421,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-hack-impl"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38c47dcb1594802de8c02f3b899e2018c78291168a22c281be21ea0fb4796842"
+checksum = "7be55bf0ae1635f4d7c7ddd6efc05c631e98a82104a73d35550bbc52db960027"
 
 [[package]]
 name = "proc-macro-nested"
@@ -2517,7 +2517,7 @@ dependencies = [
  "mime 0.3.14",
  "mime_guess 1.8.7",
  "percent-encoding 1.0.1",
- "proc-macro-hack 0.4.2",
+ "proc-macro-hack 0.4.3",
  "serde 1.0.101",
  "serde_derive",
  "serde_json",
@@ -2538,7 +2538,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "161cdaa340b77756efe585d6d8f5d346aa3c04dd096cbd6c3443064797477a8b"
 dependencies = [
  "http",
- "proc-macro-hack 0.4.2",
+ "proc-macro-hack 0.4.3",
  "proc-macro2 0.4.30",
  "quote 0.6.13",
  "syn 0.15.44",
