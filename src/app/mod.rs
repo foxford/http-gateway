@@ -77,7 +77,7 @@ impl_web! {
             self.tx.lock()
                 .map_err(move |_| {
                     let detail = "error acquiring a mutex for outgoing MQTT request";
-                    error().status(StatusCode::UNPROCESSABLE_ENTITY).detail(&detail).build()
+                    error().status(StatusCode::UNPROCESSABLE_ENTITY).detail(detail).build()
                 })
                 .and_then(move |mut tx| {
                     let payload_account_id = body.me.as_account_id();
@@ -122,7 +122,7 @@ impl_web! {
                         .timeout(timeout)
                         .map_err(move |_| {
                             let detail = "timeout on an outgoing HTTP response";
-                            error().status(StatusCode::GATEWAY_TIMEOUT).detail(&detail).build()
+                            error().status(StatusCode::GATEWAY_TIMEOUT).detail(detail).build()
                         })
                 })
                 .then(|result| match result {
@@ -221,7 +221,7 @@ pub(crate) fn run() {
     info!("Agent Id: {}", agent_id);
 
     let token = jws_compact::TokenBuilder::new()
-        .issuer(&agent_id.as_account_id().audience().to_string())
+        .issuer(agent_id.as_account_id().audience())
         .subject(&agent_id)
         .key(config.id_token.algorithm, config.id_token.key.as_slice())
         .build()
@@ -263,7 +263,7 @@ pub(crate) fn run() {
         let subject = AccountId::new(config.id.label(), &subject_audience);
 
         let token = jws_compact::TokenBuilder::new()
-            .issuer(&config.id.audience().to_owned())
+            .issuer(config.id.audience())
             .subject(&subject)
             .key(config.id_token.algorithm, config.id_token.key.as_slice())
             .build()
@@ -305,17 +305,16 @@ pub(crate) fn run() {
                         );
 
                         if let Ok(message) = message {
-
-                            let result = handle_message(
-                                &mut resp_tx,
-                                &mut hq_tx,
+                            let result = MessageHandler {
+                                resp_tx: &mut resp_tx,
+                                hq_tx: &mut hq_tx,
                                 topic,
-                                message.clone(),
-                                state.clone(),
-                                &config.telemetry,
-                                queue_counter.clone(),
-                                agent_id
-                            );
+                                message: message.clone(),
+                                state,
+                                telemetry_config: &config.telemetry,
+                                queue_counter: queue_counter.clone(),
+                                agent_id,
+                            }.handle();
 
                             if let Err(err) = result {
                                 error!(
@@ -449,44 +448,59 @@ fn resubscribe(agent: &mut Agent, agent_id: &AgentId, config: &Config) {
 
 //////////////////////////////////////////////////////////////////////////////////
 
-fn handle_message(
-    resp_tx: &mut Adapter,
-    hq_tx: &mut OutgoingStream,
-    topic: &str,
+struct MessageHandler<'a> {
+    resp_tx: &'a mut Adapter,
+    hq_tx: &'a mut OutgoingStream,
+    topic: &'a str,
     message: IncomingMessage<String>,
     state: Arc<State>,
-    telemetry_config: &config::TelemetryConfig,
+    telemetry_config: &'a config::TelemetryConfig,
     queue_counter: QueueCounterHandle,
     agent_id: AgentId,
-) -> Result<()> {
-    match message {
-        IncomingMessage::Response(resp) => {
-            let resp = IncomingResponse::convert::<JsonValue>(resp)?;
-            resp_tx.commit_response(resp)
-        }
-        IncomingMessage::Event(event) => {
-            if event.properties().label() == Some("metric.pull") {
-                let metrics_resp = endpoint::metrics::PullHandler::handle(
-                    event,
-                    telemetry_config,
-                    queue_counter,
-                    agent_id,
-                )?;
-                if let Some(metrics_resp) = metrics_resp {
-                    resp_tx.publish_publishable(metrics_resp)
-                } else {
-                    Ok(())
-                }
-            } else {
-                let event = IncomingEvent::convert::<JsonValue>(event)?;
-                let outev = state.event.handle(topic, &event)?;
-                hq_tx.send(outev)
+}
+
+impl MessageHandler<'_> {
+    fn handle(self) -> Result<()> {
+        let Self {
+            resp_tx,
+            hq_tx,
+            topic,
+            message,
+            state,
+            telemetry_config,
+            queue_counter,
+            agent_id,
+        } = self;
+
+        match message {
+            IncomingMessage::Response(resp) => {
+                let resp = IncomingResponse::convert::<JsonValue>(resp)?;
+                resp_tx.commit_response(resp)
             }
+            IncomingMessage::Event(event) => {
+                if event.properties().label() == Some("metric.pull") {
+                    let metrics_resp = endpoint::metrics::PullHandler::handle(
+                        event,
+                        telemetry_config,
+                        queue_counter,
+                        agent_id,
+                    )?;
+                    if let Some(metrics_resp) = metrics_resp {
+                        resp_tx.publish_publishable(metrics_resp)
+                    } else {
+                        Ok(())
+                    }
+                } else {
+                    let event = IncomingEvent::convert::<JsonValue>(event)?;
+                    let outev = state.event.handle(topic, &event)?;
+                    hq_tx.send(outev)
+                }
+            }
+            _ => Err(format_err!(
+                "unsupported message type, message = '{:?}'",
+                message
+            )),
         }
-        _ => Err(format_err!(
-            "unsupported message type, message = '{:?}'",
-            message
-        )),
     }
 }
 

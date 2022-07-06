@@ -13,7 +13,7 @@ impl Headers {
         header_map.reserve(self.0.len());
 
         for (name_str, value_str) in self.0.iter() {
-            let prefixed_name = format!("gateway-{}", name_str.replace("_", "-"));
+            let prefixed_name = format!("gateway-{}", name_str.replace('_', "-"));
 
             if let Ok(name) = HeaderName::from_bytes(prefixed_name.as_bytes()) {
                 if let Ok(value) = HeaderValue::from_bytes(value_str.as_bytes()) {
