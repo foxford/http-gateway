@@ -18,7 +18,7 @@ reqwest = "0.9"
 uuid = "0.7"
 tokio = "0.1"
 futures = "0.1"
-futures-locks = "0.3"
+futures-locks = "0.7"
 tower-web = "0.3"
 svc-authn = { version = "0.6", features = ["jose", "tower-web"] }
 svc-agent = { version = "0.14", features = ["queue-counter"] }
