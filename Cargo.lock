@@ -2070,9 +2070,9 @@ dependencies = [
 
 [[package]]
 name = "svc-authn"
-version = "0.6.0"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f546e117d9287d7b1274e855315019011d13736fdc5c8f8ef9d09ae00509de6"
+checksum = "05646fed4709a707d917bed423fa8f2d038453b17199a066ece5b708d5f8798d"
 dependencies = [
  "chrono",
  "http",
