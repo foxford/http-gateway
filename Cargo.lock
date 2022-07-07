@@ -797,7 +797,7 @@ dependencies = [
  "svc-error",
  "tokio 0.1.22",
  "tower-web",
- "uuid 0.7.4",
+ "uuid 0.8.1",
 ]
 
 [[package]]
