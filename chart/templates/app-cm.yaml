@@ -66,8 +66,10 @@ data:
 
     {{- printf "\n" }}
     {{- $audience := .audience }}
+    {{- if .eventCallback }}
     [events.{{ list $ns $audience | compact | join "." | quote }}]
     callback = {{ .eventCallback | quote }}
+    {{- end }}
 
     {{- printf "\n" }}
     {{- range .sources }}
