@@ -6,7 +6,7 @@ metadata:
   name: {{ include "http-gateway.fullname" . }}-app
 data:
   App.toml: |
-    {{- $id :=  list (include "http-gateway.name" .) (include "http-gateway.shortNamespace" .) "svc" .Values.app.svc.audience | compact | join "." }}
+    {{- $id :=  list (include "http-gateway.name" .) (include "http-gateway.shortNamespace" .) .Values.app.svc.audience | compact | join "." }}
     id = {{ $id | quote }}
 
     [mqtt]
@@ -39,7 +39,7 @@ data:
     key = {{ .Values.app.svc.authn.key | quote }}
 
     {{- printf "\n" }}
-    {{ $svc := list (include "http-gateway.shortNamespace" .) "svc" .Values.app.svc.audience | compact | join "." }}
+    {{ $svc := list (include "http-gateway.shortNamespace" .) .Values.app.svc.audience | compact | join "." }}
     {{- range .Values.app.audiences }}
     ##
     ## {{ .audience }}
