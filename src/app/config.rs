@@ -14,8 +14,6 @@ pub(crate) struct Config {
     pub(crate) sentry: Option<svc_error::extension::sentry::Config>,
     #[serde(default)]
     pub(crate) telemetry: TelemetryConfig,
-    #[serde(default)]
-    pub(crate) kruonis: KruonisConfig,
 }
 
 pub(crate) fn load() -> Result<Config, config::ConfigError> {
@@ -27,10 +25,5 @@ pub(crate) fn load() -> Result<Config, config::ConfigError> {
 
 #[derive(Clone, Debug, Deserialize, Default)]
 pub(crate) struct TelemetryConfig {
-    pub(crate) id: Option<AccountId>,
-}
-
-#[derive(Clone, Debug, Deserialize, Default)]
-pub(crate) struct KruonisConfig {
     pub(crate) id: Option<AccountId>,
 }

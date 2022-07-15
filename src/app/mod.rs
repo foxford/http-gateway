@@ -31,7 +31,7 @@ use tower_web::{
 };
 use uuid::Uuid;
 
-use self::config::{Config, KruonisConfig};
+use self::config::Config;
 use crate::util::headers::Headers;
 use crate::util::http_stream::OutgoingStream;
 use crate::util::mqtt_request::Adapter;
@@ -384,13 +384,6 @@ fn subscribe(agent: &mut Agent, agent_id: &AgentId, config: &Config) -> anyhow::
         .subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)
         .context("Error subscribing to app's responses topic")?;
 
-    if let KruonisConfig {
-        id: Some(ref kruonis_id),
-    } = config.kruonis
-    {
-        subscribe_to_kruonis(kruonis_id, agent, agent_id)?;
-    }
-
     // Audience level events for each tenant
     for (tenant_audience, tenant_events_config) in &config.events {
         for source in tenant_events_config.sources() {
@@ -408,26 +401,6 @@ fn subscribe(agent: &mut Agent, agent_id: &AgentId, config: &Config) -> anyhow::
         }
     }
 
-    Ok(())
-}
-
-fn subscribe_to_kruonis(
-    kruonis_id: &AccountId,
-    agent: &mut Agent,
-    agent_id: &AgentId,
-) -> Result<()> {
-    let timing = ShortTermTimingProperties::new(Utc::now());
-
-    let topic = Subscription::unicast_requests_from(kruonis_id)
-        .subscription_topic(agent.id(), API_VERSION)
-        .context("Failed to build subscription topic")?;
-
-    let mut props = OutgoingRequestProperties::new("kruonis.subscribe", &topic, "", timing);
-    props.set_agent_id(agent_id.to_owned());
-
-    let event = OutgoingRequest::multicast(serde_json::json!({}), props, kruonis_id);
-
-    agent.publish(event).context("Failed to publish message")?;
     Ok(())
 }
 
