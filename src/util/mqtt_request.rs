@@ -2,7 +2,7 @@ use anyhow::{format_err, Result};
 use futures::sync::oneshot;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use svc_agent::mqtt::{Agent, IntoPublishableMessage, OutgoingMessage};
+use svc_agent::mqtt::{Agent, OutgoingMessage};
 use svc_agent::AgentId;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -56,15 +56,6 @@ impl Adapter {
         }
 
         Ok(())
-    }
-
-    pub(crate) fn publish_publishable(
-        &mut self,
-        message: Box<dyn IntoPublishableMessage>,
-    ) -> Result<()> {
-        self.tx
-            .publish_publishable(message)
-            .map_err(|e| format_err!("Failed publishing message, reason = {}", e))
     }
 }
 
