@@ -18,7 +18,6 @@ use svc_agent::mqtt::{
 };
 use svc_agent::{
     mqtt::{Agent, ShortTermTimingProperties},
-    queue_counter::QueueCounterHandle,
     AccountId, AgentId, Authenticable, ResponseSubscription, SharedGroup, Source, Subscription,
 };
 use svc_authn::{jose::Algorithm, token::jws_compact};
@@ -31,7 +30,7 @@ use tower_web::{
 };
 use uuid::Uuid;
 
-use self::config::{Config, KruonisConfig};
+use self::config::Config;
 use crate::util::headers::Headers;
 use crate::util::http_stream::OutgoingStream;
 use crate::util::mqtt_request::Adapter;
@@ -235,8 +234,6 @@ pub(crate) fn run() {
         .start(&agent_config)
         .expect("Failed to create an agent");
 
-    let queue_counter = tx.get_queue_counter();
-
     // Event loop for incoming messages of MQTT Agent
     let (mq_tx, mq_rx) = mpsc::unbounded::<AgentNotification>();
     thread::spawn(move || {
@@ -285,7 +282,6 @@ pub(crate) fn run() {
         let state = state.clone();
         let mut agent = agent.clone();
         let agent_id = agent_id.clone();
-        let queue_counter = queue_counter.clone();
         let config = config_.clone();
 
         resp_tx
@@ -311,9 +307,6 @@ pub(crate) fn run() {
                                 topic,
                                 message: message.clone(),
                                 state,
-                                telemetry_config: &config.telemetry,
-                                queue_counter: queue_counter.clone(),
-                                agent_id,
                             }.handle();
 
                             if let Err(err) = result {
@@ -384,13 +377,6 @@ fn subscribe(agent: &mut Agent, agent_id: &AgentId, config: &Config) -> anyhow::
         .subscribe(&Subscription::unicast_responses(), QoS::AtLeastOnce, None)
         .context("Error subscribing to app's responses topic")?;
 
-    if let KruonisConfig {
-        id: Some(ref kruonis_id),
-    } = config.kruonis
-    {
-        subscribe_to_kruonis(kruonis_id, agent, agent_id)?;
-    }
-
     // Audience level events for each tenant
     for (tenant_audience, tenant_events_config) in &config.events {
         for source in tenant_events_config.sources() {
@@ -408,26 +394,6 @@ fn subscribe(agent: &mut Agent, agent_id: &AgentId, config: &Config) -> anyhow::
         }
     }
 
-    Ok(())
-}
-
-fn subscribe_to_kruonis(
-    kruonis_id: &AccountId,
-    agent: &mut Agent,
-    agent_id: &AgentId,
-) -> Result<()> {
-    let timing = ShortTermTimingProperties::new(Utc::now());
-
-    let topic = Subscription::unicast_requests_from(kruonis_id)
-        .subscription_topic(agent.id(), API_VERSION)
-        .context("Failed to build subscription topic")?;
-
-    let mut props = OutgoingRequestProperties::new("kruonis.subscribe", &topic, "", timing);
-    props.set_agent_id(agent_id.to_owned());
-
-    let event = OutgoingRequest::multicast(serde_json::json!({}), props, kruonis_id);
-
-    agent.publish(event).context("Failed to publish message")?;
     Ok(())
 }
 
@@ -454,9 +420,6 @@ struct MessageHandler<'a> {
     topic: &'a str,
     message: IncomingMessage<String>,
     state: Arc<State>,
-    telemetry_config: &'a config::TelemetryConfig,
-    queue_counter: QueueCounterHandle,
-    agent_id: AgentId,
 }
 
 impl MessageHandler<'_> {
@@ -467,9 +430,6 @@ impl MessageHandler<'_> {
             topic,
             message,
             state,
-            telemetry_config,
-            queue_counter,
-            agent_id,
         } = self;
 
         match message {
@@ -478,23 +438,9 @@ impl MessageHandler<'_> {
                 resp_tx.commit_response(resp)
             }
             IncomingMessage::Event(event) => {
-                if event.properties().label() == Some("metric.pull") {
-                    let metrics_resp = endpoint::metrics::PullHandler::handle(
-                        event,
-                        telemetry_config,
-                        queue_counter,
-                        agent_id,
-                    )?;
-                    if let Some(metrics_resp) = metrics_resp {
-                        resp_tx.publish_publishable(metrics_resp)
-                    } else {
-                        Ok(())
-                    }
-                } else {
-                    let event = IncomingEvent::convert::<JsonValue>(event)?;
-                    let outev = state.event.handle(topic, &event)?;
-                    hq_tx.send(outev)
-                }
+                let event = IncomingEvent::convert::<JsonValue>(event)?;
+                let outev = state.event.handle(topic, &event)?;
+                hq_tx.send(outev)
             }
             _ => Err(format_err!(
                 "unsupported message type, message = '{:?}'",
