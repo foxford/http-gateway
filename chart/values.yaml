@@ -31,8 +31,6 @@ app:
     #       mountPath: /app/data/keys/svc.private_key.p8.der
     #     - subPath: svc.public_key
     #       mountPath: /app/data/keys/svc.public_key.p8.der
-    # authn:
-    #   key: /app/data/keys/svc.private_key.p8.der
 
   audiences:
     # - audience: foo.bar
