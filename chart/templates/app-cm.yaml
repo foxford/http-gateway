@@ -36,7 +36,7 @@ data:
     ##
     [id_token]
     algorithm = {{ .Values.app.svc.algorithm | quote }}
-    key = {{ .Values.app.svc.authn.key | quote }}
+    key = "data/keys/svc.private_key.p8.der"
 
     {{- printf "\n" }}
     {{ $svc := list (include "http-gateway.shortNamespace" .) .Values.app.svc.audience | compact | join "." }}
