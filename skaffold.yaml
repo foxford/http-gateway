@@ -2,7 +2,7 @@ apiVersion: skaffold/v2beta11
 kind: Config
 build:
   artifacts:
-  - image: foxford/http-gateway
+  - image: cr.yandex/crp1of6bddata8ain3q5/http-gateway
     context: .
     docker:
       dockerfile: docker/Dockerfile
@@ -18,7 +18,7 @@ deploy:
       - name: http-gateway
         chartPath: chart
         artifactOverrides:
-          app.image: foxford/http-gateway
+          app.image: cr.yandex/crp1of6bddata8ain3q5/http-gateway
         imageStrategy:
           helm: {}
         valuesFiles:
