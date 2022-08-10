@@ -37,6 +37,8 @@ END
 set -ex
 
 if [[ -n ${NAMESPACE} ]]; then
+    FILE_FROM_GITHUB "deploy" "${SOURCE}/certs/ca-${NAMESPACE}.crt"
+
     SHORT_NS=$(echo $NAMESPACE | sed s/-ng/-foxford/ | sed -E "s/^(.)([[:alpha:]]*)(.*)$/\1\3/")
     FILE_FROM_GITHUB "deploy" "${APPS_SOURCE}/${SHORT_NS}/${PROJECT}/values.yaml"
 
