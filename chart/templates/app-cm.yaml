@@ -6,7 +6,7 @@ metadata:
   name: {{ include "http-gateway.fullname" . }}-app
 data:
   App.toml: |
-    {{- $id :=  list (include "http-gateway.name" .) (include "http-gateway.shortNamespace" .) .Values.app.svc.audience | compact | join "." }}
+    {{- $id :=  list (include "http-gateway.name" .) (include "http-gateway.audienceEnvironment" .) .Values.app.svc.audience | compact | join "." }}
     id = {{ $id | quote }}
 
     [mqtt]
@@ -39,25 +39,25 @@ data:
     key = "data/keys/svc.private_key.p8.der"
 
     {{- printf "\n" }}
-    {{ $svc := list (include "http-gateway.shortNamespace" .) .Values.app.svc.audience | compact | join "." }}
+    {{ $svc := list (include "http-gateway.audienceEnvironment" .) .Values.app.svc.audience | compact | join "." }}
     {{- range .Values.app.audiences }}
     ##
     ## {{ .audience }}
     ##
     {{- $ns := "" }}
     {{- if regexMatch "(?:talenttech)" .audience }}
-    {{- $ns = regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.shortNamespace" $) "beta" }}
+    {{- $ns = regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.audienceEnvironment" $) "beta" }}
     {{- else }}
-    {{- $ns = include "http-gateway.shortNamespace" $ }}
+    {{- $ns = include "http-gateway.audienceEnvironment" $ }}
     {{- end }}
     {{- $svc_audience := "" }}
     {{- $usr_audience := "" }}
     {{- if regexMatch "(?:talenttech)" .audience }}
-    {{- $svc_audience = list (regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.shortNamespace" $) "beta") "svc" .audience | compact | join "." }}
-    {{- $usr_audience = list (regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.shortNamespace" $) "beta") "usr" .audience | compact | join "." }}
+    {{- $svc_audience = list (regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.audienceEnvironment" $) "beta") "svc" .audience | compact | join "." }}
+    {{- $usr_audience = list (regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.audienceEnvironment" $) "beta") "usr" .audience | compact | join "." }}
     {{- else }}
-    {{- $svc_audience = list (include "http-gateway.shortNamespace" $) "svc" .audience | compact | join "." }}
-    {{- $usr_audience = list (include "http-gateway.shortNamespace" $) "usr" .audience | compact | join "." }}
+    {{- $svc_audience = list (include "http-gateway.audienceEnvironment" $) "svc" .audience | compact | join "." }}
+    {{- $usr_audience = list (include "http-gateway.audienceEnvironment" $) "usr" .audience | compact | join "." }}
     {{- end }}
     [authn.{{ list "iam" $svc_audience | join "." | quote }}]
     audience = [{{ $svc_audience | quote }}, {{ $usr_audience | quote }}]
