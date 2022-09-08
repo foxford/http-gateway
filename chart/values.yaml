@@ -22,7 +22,7 @@ app:
   httpClient:
     timeout: 5 # seconds
 
-  svc:
+  svc: {}
     # audience: svc.foo.bar
     # algorithm: ES256
     # credentials:
@@ -32,7 +32,7 @@ app:
     #     - subPath: svc.public_key
     #       mountPath: /app/data/keys/svc.public_key.p8.der
 
-  audiences:
+  audiences: {}
     # - audience: foo.bar
     #   eventCallback: https://foo.bar/api/v1/authz
     #   credentials:
