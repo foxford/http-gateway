@@ -341,7 +341,7 @@ pub(crate) fn run() {
     });
 
     // Resources
-    let request = Request::new(req_tx, Duration::from_secs((&config.http_client).timeout()));
+    let request = Request::new(req_tx, Duration::from_secs((config.http_client).timeout()));
 
     // Middleware
     let cors = CorsBuilder::new()

@@ -1,7 +1,7 @@
 ## -----------------------------------------------------------------------------
 ## Build
 ## -----------------------------------------------------------------------------
-FROM clux/muslrust:stable as build-stage
+FROM clux/muslrust:1.62.1-stable as build-stage
 
 WORKDIR "/build"
 COPY . .
