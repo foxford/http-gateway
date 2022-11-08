@@ -50,15 +50,8 @@ data:
     {{- else }}
     {{- $ns = include "http-gateway.audienceEnvironment" $ }}
     {{- end }}
-    {{- $svc_audience := "" }}
-    {{- $usr_audience := "" }}
-    {{- if regexMatch "(?:talenttech)" .audience }}
-    {{- $svc_audience = list (regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.audienceEnvironment" $) "beta") "svc" .audience | compact | join "." }}
-    {{- $usr_audience = list (regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.audienceEnvironment" $) "beta") "usr" .audience | compact | join "." }}
-    {{- else }}
-    {{- $svc_audience = list "svc" .audience | compact | join "." }}
-    {{- $usr_audience = list "usr" .audience | compact | join "." }}
-    {{- end }}
+    {{- $svc_audience := list "svc" .audience | compact | join "." }}
+    {{- $usr_audience := list "usr" .audience | compact | join "." }}
     [authn.{{ list "iam" $svc_audience | join "." | quote }}]
     audience = [{{ $svc_audience | quote }}, {{ $usr_audience | quote }}]
     algorithm = "ES256"
