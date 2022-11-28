@@ -79,3 +79,5 @@ spec:
             secretName: {{ $secret }}
         {{- end }}
         {{- end }}
+      resources:
+        {{- toYaml .Values.app.resources | nindent 8 }}
