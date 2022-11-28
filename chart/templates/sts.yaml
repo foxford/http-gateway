@@ -23,6 +23,8 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: IfNotPresent
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}
           env:
             - name: APP_AGENT_LABEL
               valueFrom:
@@ -79,5 +81,3 @@ spec:
             secretName: {{ $secret }}
         {{- end }}
         {{- end }}
-      resources:
-        {{- toYaml .Values.app.resources | nindent 8 }}

@@ -11,10 +11,10 @@ app:
 
   resources:
     limits:
-      cpu: 0.2
+      cpu: 200m
       memory: 300Mi
     requests:
-      cpu: 0.01
+      cpu: 10m
       memory: 100Mi
 
   sentryDsn: foo:bar@sentry.io/123
@@ -32,7 +32,7 @@ app:
     #     - subPath: svc.public_key
     #       mountPath: /app/data/keys/svc.public_key.p8.der
 
-  audiences: {}
+  audiences: []
     # - audience: foo.bar
     #   eventCallback: https://foo.bar/api/v1/authz
     #   credentials:
