@@ -10,11 +10,8 @@ app:
     tag: "latest"
 
   resources:
-    limits:
-      cpu: 200m
-      memory: 300Mi
     requests:
-      cpu: 10m
+      cpu: 0.01
       memory: 100Mi
 
   sentryDsn: foo:bar@sentry.io/123
