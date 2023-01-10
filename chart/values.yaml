@@ -7,42 +7,15 @@ replicaCount: 2
 app:
   image:
     repository: cr.yandex/crp1of6bddata8ain3q5/http-gateway
-    tag: "latest"
+    tag: ""
 
   resources:
     requests:
       cpu: 0.01
       memory: 100Mi
 
-  sentryDsn: foo:bar@sentry.io/123
-
   httpClient:
     timeout: 5 # seconds
-
-  svc: {}
-    # audience: svc.foo.bar
-    # algorithm: ES256
-    # credentials:
-    #   svc-pkcs8-der-credentials:
-    #     - subPath: svc.private_key
-    #       mountPath: /app/data/keys/svc.private_key.p8.der
-    #     - subPath: svc.public_key
-    #       mountPath: /app/data/keys/svc.public_key.p8.der
-
-  audiences: []
-    # - audience: foo.bar
-    #   eventCallback: https://foo.bar/api/v1/authz
-    #   credentials:
-    #     foobar-der-credentials:
-    #       - subPath: foobar-public-key
-    #         mountPath: /path/to/foobar/public/key
-    #   authn:
-    #     key: path/to/public_key.p8.der
-    #   sources:
-    #     - source: "conference"
-    #       version: "v1"
-    #     - source: "conference"
-    #       version: "v2"
 
 env:
   RUST_LOG: info

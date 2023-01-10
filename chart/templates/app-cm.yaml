@@ -39,33 +39,31 @@ data:
     key = "data/keys/svc.private_key.p8.der"
 
     {{- printf "\n" }}
-    {{ $svc := list .Values.app.svc.audience | compact | join "." }}
     {{- range .Values.app.audiences }}
     ##
     ## {{ .audience }}
     ##
-    {{- $ns := "" }}
+    {{- $tenantServiceAudience := include "http-gateway.tenantServiceAudience" .audience }}
+    {{- $tenantUserAudience := include "http-gateway.tenantUserAudience" .audience }}
+    {{- $tenantObjectAudience := "" }}
     {{- if regexMatch "(?:talenttech)" .audience }}
-    {{- $ns = regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.audienceEnvironment" $) "beta" }}
+    {{- $tenantObjectAudience = regexReplaceAll "(^(?:staging|testing)[\\d]*)" (include "http-gateway.tenantObjectAudience" (list $.Release.Namespace .audience)) "beta" }}
     {{- else }}
-    {{- $ns = include "http-gateway.audienceEnvironment" $ }}
+    {{- $tenantObjectAudience = include "http-gateway.tenantObjectAudience" (list $.Release.Namespace .audience) }}
     {{- end }}
-    {{- $svc_audience := list "svc" .audience | compact | join "." }}
-    {{- $usr_audience := list "usr" .audience | compact | join "." }}
-    [authn.{{ list "iam" $svc_audience | join "." | quote }}]
-    audience = [{{ $svc_audience | quote }}, {{ $usr_audience | quote }}]
+    [authn.{{ list "iam" $tenantServiceAudience | join "." | quote }}]
+    audience = [{{ $tenantServiceAudience | quote }}, {{ $tenantUserAudience | quote }}]
     algorithm = "ES256"
     key = {{ .authn.key | quote }}
 
     {{- printf "\n" }}
-    {{- $audience := .audience }}
-    [events.{{ list $ns $audience | compact | join "." | quote }}]
+    [events.{{ $tenantObjectAudience | quote }}]
     callback = {{ .eventCallback | quote }}
 
     {{- printf "\n" }}
     {{- range .sources }}
-    [[events.{{ list $ns $audience | compact | join "." | quote }}.sources]]
-    account_id = {{ list .source $svc | join "." | quote }}
+    [[events.{{ $tenantObjectAudience | quote }}.sources]]
+    account_id = {{ list .source $.Values.app.svc.audience | join "." | quote }}
     version = {{ .version | quote }}
     {{- printf "\n" }}
     {{- end }}
