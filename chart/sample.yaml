@@ -1,0 +1,31 @@
+app:
+  svc:
+    audience: svc.test.net
+    algorithm: ES256
+    credentials:
+      svc-pkcs8-der-credentials:
+        - subPath: svc.private_key
+          mountPath: /app/data/keys/svc.private_key.p8.der
+        - subPath: svc.public_key
+          mountPath: /app/data/keys/svc.public_key.p8.der
+  audiences:
+    - audience: foo.bar
+      eventCallback: http://foo.bar/api/transcode/webinars
+      credentials:
+        foo-pkcs8-der-credentials:
+          - subPath: iam.foo.public_key
+            mountPath: /app/data/keys/iam.foo.public_key.p8.der
+      authn:
+        key: /app/data/keys/iam.foo.public_key.p8.der
+      sources:
+        - source: "conference"
+          version: "v1"
+        - source: "conference"
+          version: "v2"
+        - source: "tq"
+          version: "v1"
+        - source: "event"
+          version: "v1"
+        - source: "dispatcher"
+          version: "v1"
+  sentryDsn: https://test@foo.bar/123
