@@ -6,6 +6,7 @@ metadata:
     {{- include "http-gateway.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
   serviceName: {{ include "http-gateway.fullname" . }}-headless
   selector:
     matchLabels:
