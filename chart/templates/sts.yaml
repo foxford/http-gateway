@@ -22,7 +22,7 @@ spec:
         - name: regcred
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
           imagePullPolicy: IfNotPresent
           resources:
             {{- toYaml .Values.app.resources | nindent 12 }}
