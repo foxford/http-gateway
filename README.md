@@ -1,11 +1,9 @@
 # HTTP Gateway
 
-[![Build Status][travis-img]][travis]  
+[![Build Status][travis-img]][travis]
 [Documentation][docs]
 
 An HTTP facade for [MQTT Gateway][mqtt-gateway-github].
-
-
 
 
 ## License
