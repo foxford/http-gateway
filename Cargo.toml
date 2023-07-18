@@ -21,5 +21,5 @@ futures = "0.1"
 futures-locks = "0.3"
 tower-web = "0.3"
 svc-authn = { version = "0.6", features = ["jose", "tower-web"] }
-svc-agent = { version = "0.14", features = ["queue-counter"] }
+svc-agent = { version = "0.15", features = ["queue-counter"] }
 svc-error = { version = "0.1", features = ["sentry-extension"] }
